@@ -71,7 +71,13 @@ class CarrierDetector:
                     r'^(0\d{9})$',       # 10-digit starting with 0: 0628143046
                     r'^(1[2-6]\d{8})$',  # 10-digit starting with 12-16: 1282975382, 1611116978 (excluding 175)
                     r'^(212\d{7})$',     # 10-digit starting with 212: 2121121287
+                    r'^(214\d{7})$',     # 10-digit starting with 214: 2140185449
+                    r'^(233\d{7})$',     # 10-digit starting with 233: 2330112981
+                    r'^(246\d{7})$',     # 10-digit starting with 246: 2460318008
+                    r'^(291\d{7})$',     # 10-digit starting with 291: 2914377363
                     r'^(401\d{7})$',     # 10-digit starting with 401: 4012381741
+                    r'^(501\d{7})$',     # 10-digit starting with 501: 5010027260
+                    r'^(69\d{7})$',      # 9-digit starting with 69: 690879689
                     r'^(7[0-6]\d{7})$',  # 9-digit starting with 70-76: 750773321
                     r'^(\d{8})$',        # 8-digit format: 12345678
                     r'^(622\d{5})$',     # 8-digit starting with 622: 62263246
