@@ -176,18 +176,34 @@ def _render_field_mapping_step():
         # Show sample data
         st.write("**Sample PRO numbers from your file:**")
         for i, pro in enumerate(sample_pros, 1):
-            carrier_info = detect_carrier_from_pro(str(pro))
-            if carrier_info:
-                st.write(f"{i}. `{pro}` → **{carrier_info['carrier_name']}** ✅")
+            # If carrier column is selected, show provided carrier name
+            if carrier_column != 'Select column...':
+                # Get corresponding carrier name from the same row
+                pro_index = df[df[pro_column] == pro].index[0] if pro in df[pro_column].values else None
+                if pro_index is not None and pro_index < len(df[carrier_column].dropna()):
+                    provided_carrier = df[carrier_column].iloc[pro_index]
+                    st.write(f"{i}. `{pro}` → **{provided_carrier}** (from your file) ✅")
+                else:
+                    # Fall back to auto-detection
+                    carrier_info = detect_carrier_from_pro(str(pro))
+                    if carrier_info:
+                        st.write(f"{i}. `{pro}` → **{carrier_info['carrier_name']}** (auto-detected) ✅")
+                    else:
+                        st.write(f"{i}. `{pro}` → **Unknown carrier** (auto-detection failed) ⚠️")
             else:
-                st.write(f"{i}. `{pro}` → **Unknown carrier** ⚠️")
+                # Only auto-detection available
+                carrier_info = detect_carrier_from_pro(str(pro))
+                if carrier_info:
+                    st.write(f"{i}. `{pro}` → **{carrier_info['carrier_name']}** (auto-detected) ✅")
+                else:
+                    st.write(f"{i}. `{pro}` → **Unknown carrier** (auto-detection failed) ⚠️")
         
         # Show carrier column sample if selected
         if carrier_column != 'Select column...':
             st.write("**Sample carriers from your file:**")
             sample_carriers = df[carrier_column].dropna().head(5).tolist()
             for i, carrier in enumerate(sample_carriers, 1):
-                st.write(f"{i}. `{carrier}`")
+                st.write(f"{i}. `{carrier}` (will be used for tracking)")
         
         # Processing options
         st.markdown("### ⚙️ Processing Options")
@@ -256,9 +272,6 @@ def _render_processing_step():
         # Show completed results
         results = st.session_state.pro_tracking_results
         
-        # Debug info
-        st.write(f"**Debug:** Found {len(results)} results in session state")
-        
         if results:
             # Summary
             total = len(results)
@@ -279,10 +292,7 @@ def _render_processing_step():
             with col4:
                 st.metric("Success Rate", f"{success_rate:.1f}%")
             
-            # Show a sample of results for debugging
-            st.subheader("🔍 Sample Results")
-            for i, result in enumerate(results[:3]):  # Show first 3 results
-                st.write(f"**PRO {i+1}:** {result}")
+
             
             # Navigation
             col1, col2, col3 = st.columns([2, 1, 2])
@@ -483,10 +493,6 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     pro_numbers = df[pro_column].dropna().astype(str).tolist()
     carriers = df[carrier_column].dropna().astype(str).tolist() if carrier_column else []
     
-    # Debug info
-    st.write(f"**Debug:** Processing {len(pro_numbers)} PRO numbers")
-    st.write(f"**Debug:** Processing options - delay: {delay}s, retries: {max_retries}")
-    
     # Ensure carriers list matches PRO numbers length
     if carrier_column and len(carriers) < len(pro_numbers):
         # Pad with None values
@@ -500,7 +506,6 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
             delay_between_requests=delay,
             max_retries=max_retries
         )
-        st.write("**Debug:** Tracking client initialized successfully")
     except Exception as e:
         st.error(f"❌ Failed to initialize tracking client: {str(e)}")
         # Create failed results for all PROs
@@ -535,10 +540,13 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
             try:
                 tracking_result = tracking_client.track_pro_number(pro_number)
                 
+                # Use provided carrier name if available, otherwise use detected carrier name
+                final_carrier_name = carrier_name or tracking_result.carrier_name or 'Unknown'
+                
                 # Create result record
                 result = {
                     'pro_number': pro_number,
-                    'carrier': tracking_result.carrier_name or 'Unknown',
+                    'carrier': final_carrier_name,
                     'status': tracking_result.tracking_status or 'No status available',
                     'location': tracking_result.tracking_location or 'No location available',
                     'timestamp': tracking_result.tracking_timestamp or 'No timestamp available',
@@ -547,7 +555,7 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                 }
                 
             except Exception as e:
-                # Create error result
+                # Create error result - prioritize provided carrier name
                 result = {
                     'pro_number': pro_number,
                     'carrier': carrier_name or 'Unknown',
@@ -557,7 +565,6 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                     'success': False,
                     'error_message': str(e)
                 }
-                st.write(f"**Debug:** Error tracking PRO {pro_number}: {str(e)}")
             
             results.append(result)
             
@@ -571,19 +578,16 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         
         # Store results
         st.session_state.pro_tracking_results = results
-        st.write(f"**Debug:** Stored {len(results)} results in session state")
         
     except Exception as e:
         st.error(f"❌ Error during tracking: {str(e)}")
         # Store partial results if any
         if results:
             st.session_state.pro_tracking_results = results
-            st.write(f"**Debug:** Stored {len(results)} partial results due to error")
     
     finally:
         try:
             tracking_client.close()
-            st.write("**Debug:** Tracking client closed successfully")
         except:
             pass
 

@@ -29,7 +29,9 @@ class CarrierDetector:
             'fedex_freight': {
                 'name': 'FedEx Freight',
                 'patterns': [
-                    r'^(\d{10})$',              # 10-digit format: 5556372640
+                    r'^(RS\d{8})$',             # RS-prefix 8-digit: RS25909506 (most specific)
+                    r'^(\d{9}-\d{1})$',         # 9-digit with dash and 1 digit: 761607932-1
+                    r'^([1-9]\d{9})$',          # 10-digit starting with 1-9: 1751027634, 4012381741, 5556372640
                     r'^(\d{3}-\d{7})$',         # 10-digit with dash: 555-6372640
                     r'^(\d{4}-\d{3}-\d{3})$',   # 10-digit with dashes: 5556-372-640
                 ],
@@ -45,7 +47,10 @@ class CarrierDetector:
             'rl_carriers': {
                 'name': 'R+L Carriers',
                 'patterns': [
-                    r'^(\d{9})$',        # 9-digit format: 823691187
+                    r'^(I\d{9})$',       # I-prefix 9-digit: I010185804 (most specific)
+                    r'^(I\d{3}-\d{6})$', # I-prefix with dash: I010-185804
+                    r'^(\d{8}-\d{1})$',  # 8-digit with dash and 1 digit: 14588517-6
+                    r'^([0123]\d{8})$',  # 9-digit starting with 0,1,2,3: 933784722
                     r'^(\d{3}-\d{6})$',  # 9-digit with dash: 823-691187
                 ],
                 'tracking_url': 'https://www.rlcarriers.com/tracking?pro={pro_number}',
@@ -61,8 +66,10 @@ class CarrierDetector:
                 'name': 'Estes Express',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format: 123-1234567
-                    r'^(\d{10})$',       # 10-digit format: 1234567890
-                    r'^(\d{9})$',        # 9-digit format: 123456789
+                    r'^([0167]\d{9})$',  # 10-digit starting with 0,1,6,7: 0628143046, 1282975382, 1611116978, 1642457961
+                    r'^(2\d{9})$',       # 10-digit starting with 2: 2121121287 (exclude Peninsula)
+                    r'^(7[0-4]\d{7})$',  # 9-digit starting with 70-74: 750773321 (exclude Peninsula)
+                    r'^(\d{8})$',        # 8-digit format: 12345678
                 ],
                 'tracking_url': 'https://www.estes-express.com/myestes/tracking/shipment?searchValue={pro_number}',
                 'login_required': False,
@@ -71,7 +78,7 @@ class CarrierDetector:
                     'location': '.current-location, .location-text, .shipment-location',
                     'event': '.latest-event, .tracking-event, .shipment-event'
                 },
-                'priority': 1  # High priority carrier
+                'priority': 2  # Higher priority to avoid conflicts with FedEx
             },
             'tforce_freight': {
                 'name': 'TForce Freight',
@@ -93,6 +100,9 @@ class CarrierDetector:
             'peninsula_truck_lines': {
                 'name': 'Peninsula Truck Lines',
                 'patterns': [
+                    r'^(536\d{6})$',     # 536 prefix with 6 digits: 536246546
+                    r'^(537\d{6})$',     # 537 prefix with 6 digits: 537313956
+                    r'^(622\d{5})$',     # 622 prefix with 5 digits: 62263246
                     r'^(\d{9})$',        # 9-digit format: 536246546
                     r'^(\d{3}-\d{6})$',  # 9-digit with dash: 536-246546
                 ],
@@ -103,7 +113,7 @@ class CarrierDetector:
                     'location': '.current-location, .location-text, .shipment-location, [class*="location"]',
                     'event': '.latest-event, .tracking-event, .shipment-event, [class*="event"]'
                 },
-                'priority': 1,  # High priority carrier
+                'priority': 3,  # Higher priority than Estes for specific patterns
                 'spa_app': True  # Single Page Application - requires special handling
             },
             'averitt_express': {
@@ -126,7 +136,7 @@ class CarrierDetector:
                 'name': 'Old Dominion Freight',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format: 123-1234567
-                    r'^(\d{10})$',       # Alternate format: 1234567890
+                    r'^([89]\d{9})$',    # 10-digit starting with 8,9: 8XXXXXXXXX, 9XXXXXXXXX
                 ],
                 'tracking_url': 'https://www.odfl.com/Tracking/shipment_tracking.aspx?pro_number={pro_number}',
                 'login_required': False,
@@ -262,8 +272,15 @@ class CarrierDetector:
         if not cleaned_pro:
             return None
         
-        # Try to match against known patterns
-        for carrier_code, carrier_info in self.carrier_patterns.items():
+        # Sort carriers by priority (higher priority first)
+        sorted_carriers = sorted(
+            self.carrier_patterns.items(),
+            key=lambda x: x[1].get('priority', 3),  # Default priority is 3 (lower)
+            reverse=True  # Higher priority first
+        )
+        
+        # Try to match against known patterns in priority order
+        for carrier_code, carrier_info in sorted_carriers:
             for pattern in carrier_info['patterns']:
                 if re.match(pattern, cleaned_pro):
                     tracking_url = carrier_info['tracking_url']
