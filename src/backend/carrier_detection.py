@@ -30,8 +30,9 @@ class CarrierDetector:
                 'name': 'FedEx Freight',
                 'patterns': [
                     r'^(RS\d{8})$',             # RS-prefix 8-digit: RS25909506 (most specific)
-                    r'^(\d{9}-\d{1})$',         # 9-digit with dash and 1 digit: 761607932-1
-                    r'^([1-9]\d{9})$',          # 10-digit starting with 1-9: 1751027634, 4012381741, 5556372640
+                    r'^(\d{9}-\d{1})$',         # 9-digit with dash and 1 digit: 761607932-1, 885614735-5
+                    r'^(175\d{7})$',            # 10-digit starting with 175: 1751027634
+                    r'^([5-9]\d{9})$',          # 10-digit starting with 5-9: 5556372640, 6181016494, 7144622306, 8064644630, 9098737502
                     r'^(\d{3}-\d{7})$',         # 10-digit with dash: 555-6372640
                     r'^(\d{4}-\d{3}-\d{3})$',   # 10-digit with dashes: 5556-372-640
                 ],
@@ -67,10 +68,13 @@ class CarrierDetector:
                 'name': 'Estes Express',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format: 123-1234567
-                    r'^([0167]\d{9})$',  # 10-digit starting with 0,1,6,7: 0628143046, 1282975382, 1611116978, 1642457961
-                    r'^(2\d{9})$',       # 10-digit starting with 2: 2121121287 (exclude Peninsula)
-                    r'^(7[0-4]\d{7})$',  # 9-digit starting with 70-74: 750773321 (exclude Peninsula)
+                    r'^(0\d{9})$',       # 10-digit starting with 0: 0628143046
+                    r'^(1[2-6]\d{8})$',  # 10-digit starting with 12-16: 1282975382, 1611116978 (excluding 175)
+                    r'^(212\d{7})$',     # 10-digit starting with 212: 2121121287
+                    r'^(401\d{7})$',     # 10-digit starting with 401: 4012381741
+                    r'^(7[0-6]\d{7})$',  # 9-digit starting with 70-76: 750773321
                     r'^(\d{8})$',        # 8-digit format: 12345678
+                    r'^(622\d{5})$',     # 8-digit starting with 622: 62263246
                 ],
                 'tracking_url': 'https://www.estes-express.com/myestes/tracking/shipment?searchValue={pro_number}',
                 'login_required': False,
@@ -79,15 +83,15 @@ class CarrierDetector:
                     'location': '.current-location, .location-text, .shipment-location',
                     'event': '.latest-event, .tracking-event, .shipment-event'
                 },
-                'priority': 2  # Higher priority to avoid conflicts with FedEx
+                'priority': 1  # Higher priority to avoid conflicts with FedEx
             },
             'tforce_freight': {
                 'name': 'TForce Freight',
                 'patterns': [
                     r'^(2205\d{9})$',    # TForce specific: 2205 + 9 digits
-                    r'^(\d{3}-\d{7})$',  # Standard format: 123-1234567
-                    r'^(\d{10})$',       # 10-digit format: 1234567890
-                    r'^(\d{9})$',        # 9-digit format: 123456789
+                    r'^(933\d{6})$',     # TForce specific: 933 + 6 digits: 933784722
+                    r'^([89]\d{8})$',    # 9-digit starting with 8,9 (avoid Peninsula 536/537)
+                    r'^(\d{3}-\d{7})$',  # Standard format with dash: 123-1234567
                 ],
                 'tracking_url': 'https://www.tforcefreight.com/tracking?pro={pro_number}',
                 'login_required': False,
@@ -96,16 +100,17 @@ class CarrierDetector:
                     'location': '.current-location, .location-text, .shipment-location',
                     'event': '.latest-event, .tracking-event, .shipment-event'
                 },
-                'priority': 1  # High priority carrier
+                'priority': 2  # Lower priority to avoid conflicts
             },
             'peninsula_truck_lines': {
                 'name': 'Peninsula Truck Lines',
                 'patterns': [
-                    r'^(536\d{6})$',     # 536 prefix with 6 digits: 536246546
-                    r'^(537\d{6})$',     # 537 prefix with 6 digits: 537313956
-                    r'^(622\d{5})$',     # 622 prefix with 5 digits: 62263246
-                    r'^(\d{9})$',        # 9-digit format: 536246546
-                    r'^(\d{3}-\d{6})$',  # 9-digit with dash: 536-246546
+                    r'^(536\d{6})$',     # 536 prefix with 6 digits: 536246546 (most specific)
+                    r'^(537\d{6})$',     # 537 prefix with 6 digits: 537313956 (most specific)
+                    r'^(622\d{5})$',     # 622 prefix with 5 digits: 62263246 (most specific)
+                    r'^(536-\d{6})$',    # 536 prefix with dash: 536-246546
+                    r'^(537-\d{6})$',    # 537 prefix with dash: 537-246546
+                    r'^(622-\d{5})$',    # 622 prefix with dash: 622-63246
                 ],
                 'tracking_url': 'https://www.peninsulatruck.com/_/#/track/?pro_number={pro_number}',
                 'login_required': False,
@@ -114,7 +119,7 @@ class CarrierDetector:
                     'location': '.current-location, .location-text, .shipment-location, [class*="location"]',
                     'event': '.latest-event, .tracking-event, .shipment-event, [class*="event"]'
                 },
-                'priority': 3,  # Higher priority than Estes for specific patterns
+                'priority': 1,  # Higher priority for specific patterns
                 'spa_app': True  # Single Page Application - requires special handling
             },
             'averitt_express': {
@@ -167,7 +172,7 @@ class CarrierDetector:
                 'name': 'XPO Logistics',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
+                    r'^(XPO\d{7})$',     # XPO-specific prefix
                 ],
                 'tracking_url': 'https://www.xpo.com/tracking?searchValue={pro_number}',
                 'login_required': False,
@@ -176,13 +181,13 @@ class CarrierDetector:
                     'location': '.location-text',
                     'event': '.event-description'
                 },
-                'priority': 2  # Lower priority
+                'priority': 3  # Lower priority to avoid conflicts
             },
             'saia': {
                 'name': 'Saia',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
+                    r'^(SAIA\d{6})$',    # Saia-specific prefix
                 ],
                 'tracking_url': 'https://www.saia.com/tracking?searchValue={pro_number}',
                 'login_required': False,
@@ -191,13 +196,13 @@ class CarrierDetector:
                     'location': '.current-location',
                     'event': '.latest-activity'
                 },
-                'priority': 2  # Lower priority
+                'priority': 3  # Lower priority to avoid conflicts
             },
             'abf_freight': {
                 'name': 'ABF Freight',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
+                    r'^(ABF\d{7})$',     # ABF-specific prefix
                 ],
                 'tracking_url': 'https://arcb.com/tools/tracking.html?pro={pro_number}',
                 'login_required': False,
@@ -206,13 +211,13 @@ class CarrierDetector:
                     'location': '.pro-location',
                     'event': '.pro-event'
                 },
-                'priority': 2  # Lower priority
+                'priority': 3  # Lower priority to avoid conflicts
             },
             'yrc_freight': {
                 'name': 'YRC Freight',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
+                    r'^(YRC\d{7})$',     # YRC-specific prefix
                 ],
                 'tracking_url': 'https://my.yrc.com/dynamic/national/servlet?CONTROLLER=com.rdwy.ec.rextracking.http.controller.ProcessPublicTrackingController&PRONumber={pro_number}',
                 'login_required': False,
@@ -221,13 +226,13 @@ class CarrierDetector:
                     'location': '.current-location',
                     'event': '.latest-activity'
                 },
-                'priority': 2  # Lower priority
+                'priority': 3  # Lower priority to avoid conflicts
             },
             'southeastern_freight': {
                 'name': 'Southeastern Freight',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
+                    r'^(SEFL\d{6})$',    # SEFL-specific prefix
                 ],
                 'tracking_url': 'https://www.sefl.com/tracking?pro={pro_number}',
                 'login_required': False,
@@ -236,13 +241,13 @@ class CarrierDetector:
                     'location': '.current-location',
                     'event': '.latest-event'
                 },
-                'priority': 2  # Lower priority
+                'priority': 3  # Lower priority to avoid conflicts
             },
             'dayton_freight': {
                 'name': 'Dayton Freight',
                 'patterns': [
                     r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
+                    r'^(DAYTON\d{4})$',  # Dayton-specific prefix
                 ],
                 'tracking_url': 'https://www.daytonfreight.com/tracking?pro={pro_number}',
                 'login_required': False,
@@ -251,7 +256,7 @@ class CarrierDetector:
                     'location': '.current-location',
                     'event': '.latest-event'
                 },
-                'priority': 2  # Lower priority
+                'priority': 3  # Lower priority to avoid conflicts
             }
         }
     
