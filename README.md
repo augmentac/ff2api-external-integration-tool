@@ -1,6 +1,6 @@
-# {CSV} FF2API
+# CSV->LTL Action Tool
 
-A comprehensive flat file to API mapping tool designed specifically for freight brokers. This tool allows non-technical users to easily upload freight data files and automatically map them to the freight loads API.
+A comprehensive flat file to API mapping tool designed specifically for LTL (Less Than Truckload) freight operations. This tool allows non-technical users to easily upload freight data files and automatically map them to the freight loads API, with specialized features for LTL operations.
 
 ## ✨ Features
 
@@ -12,6 +12,7 @@ A comprehensive flat file to API mapping tool designed specifically for freight 
 - **Error Handling**: Download failed records for troubleshooting
 - **Secure Storage**: Encrypted API credentials storage
 - **Upload History**: Track all processing activities
+- **LTL-Specific Features**: Specialized handling for LTL freight operations
 
 ## 🏗️ Architecture
 
