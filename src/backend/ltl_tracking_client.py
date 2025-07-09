@@ -1886,26 +1886,105 @@ class LTLTrackingClient:
             location_pattern = r'([A-Z][A-Z\s,]+,\s+[A-Z]{2}\s+US)'
             location_matches = re.findall(location_pattern, page_text)
             
+            # Enhanced parsing for Estes delivery data
             # Look for key-value pairs in the text
             for i, line in enumerate(lines):
                 line = line.strip()
                 
                 # Look for "Delivery Date" followed by timestamp
-                if 'delivery date' in line.lower() and i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
-                    if re.match(r'\d{2}/\d{2}/\d{4}\s+\d{1,2}:\d{2}\s+[AP]M', next_line):
-                        tracking_data['status'] = 'Delivered'
-                        tracking_data['timestamp'] = next_line
-                        tracking_data['event'] = f'Delivered on {next_line}'
+                if 'delivery date' in line.lower():
+                    # Check next few lines for timestamp
+                    for j in range(1, 4):
+                        if i + j < len(lines):
+                            next_line = lines[i + j].strip()
+                            if re.match(r'\d{2}/\d{2}/\d{4}\s+\d{1,2}:\d{2}\s+[AP]M', next_line):
+                                tracking_data['status'] = 'Delivered'
+                                tracking_data['timestamp'] = next_line
+                                tracking_data['event'] = 'Delivery'
+                                break
                 
                 # Look for "Consignee Address" followed by location
-                elif 'consignee address' in line.lower() and i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
-                    if re.match(r'[A-Z][A-Z\s,]+,\s+[A-Z]{2}\s+US', next_line):
-                        tracking_data['location'] = next_line
+                elif 'consignee address' in line.lower():
+                    # Check next few lines for location
+                    for j in range(1, 4):
+                        if i + j < len(lines):
+                            next_line = lines[i + j].strip()
+                            if re.match(r'[A-Z][A-Z\s,]+,\s+[A-Z]{2}\s+US', next_line):
+                                tracking_data['location'] = next_line
+                                break
+                
+                # Look for "Appointment Date" pattern (alternative delivery info)
+                elif 'appointment date' in line.lower():
+                    for j in range(1, 4):
+                        if i + j < len(lines):
+                            next_line = lines[i + j].strip()
+                            if re.match(r'\d{2}/\d{2}/\d{4}\s+\d{1,2}:\d{2}\s+[AP]M', next_line):
+                                if not tracking_data.get('timestamp'):  # Only if no delivery date found
+                                    tracking_data['timestamp'] = next_line
+                                    tracking_data['event'] = 'Scheduled for Delivery'
+                                break
                 
                 # Look for status keywords
                 elif any(keyword in line.lower() for keyword in ['delivered', 'in transit', 'out for delivery', 'picked up']):
+                    if 'delivered' in line.lower():
+                        tracking_data['status'] = 'Delivered'
+                        if not tracking_data.get('event'):
+                            tracking_data['event'] = 'Delivery'
+                    elif 'in transit' in line.lower():
+                        tracking_data['status'] = 'In Transit'
+                        if not tracking_data.get('event'):
+                            tracking_data['event'] = 'In Transit'
+                    elif 'out for delivery' in line.lower():
+                        tracking_data['status'] = 'Out for Delivery'
+                        if not tracking_data.get('event'):
+                            tracking_data['event'] = 'Out for Delivery'
+                    elif 'picked up' in line.lower():
+                        tracking_data['status'] = 'Picked Up'
+                        if not tracking_data.get('event'):
+                            tracking_data['event'] = 'Picked Up'
+            
+            # Enhanced table parsing for Estes structure
+            tables = soup.find_all('table')
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:
+                        header = self._clean_text(cells[0].get_text()).lower()
+                        value = self._clean_text(cells[1].get_text())
+                        
+                        if value and len(value) > 2:
+                            if 'delivery date' in header:
+                                tracking_data['status'] = 'Delivered'
+                                tracking_data['timestamp'] = value
+                                tracking_data['event'] = 'Delivery'
+                            elif 'consignee address' in header:
+                                tracking_data['location'] = value
+                            elif 'appointment date' in header and not tracking_data.get('timestamp'):
+                                tracking_data['timestamp'] = value
+                                tracking_data['event'] = 'Scheduled for Delivery'
+                            elif any(keyword in header for keyword in ['status', 'condition']):
+                                tracking_data['status'] = value
+                                if 'delivered' in value.lower():
+                                    tracking_data['event'] = 'Delivery'
+            
+            # Look for specific div structures that Estes uses
+            delivery_divs = soup.find_all('div', class_=re.compile(r'delivery|shipment|tracking', re.I))
+            for div in delivery_divs:
+                div_text = div.get_text()
+                if 'delivery date' in div_text.lower():
+                    # Extract timestamp from div
+                    timestamp_match = re.search(r'(\d{2}/\d{2}/\d{4}\s+\d{1,2}:\d{2}\s+[AP]M)', div_text)
+                    if timestamp_match:
+                        tracking_data['status'] = 'Delivered'
+                        tracking_data['timestamp'] = timestamp_match.group(1)
+                        tracking_data['event'] = 'Delivery'
+                
+                if 'consignee address' in div_text.lower():
+                    # Extract location from div
+                    location_match = re.search(r'([A-Z][A-Z\s,]+,\s+[A-Z]{2}\s+US)', div_text)
+                    if location_match:
+                        tracking_data['location'] = location_match.group(1)
                     if len(line) > 5 and len(line) < 50:  # Reasonable length for status
                         tracking_data['status'] = line
             
