@@ -225,33 +225,32 @@ def _render_integration_status_card(status: IntegrationStatus):
     # Response time display
     response_time_display = f"{status.response_time:.2f}s" if status.response_time is not None else "N/A"
     
-    st.markdown(f"""
-        <div style="
-            background: {config['bg']};
-            border: 1px solid {config['color']};
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        ">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.2rem;">{config['icon']}</span>
-                <strong style="color: {config['color']}; font-size: 1.1rem;">{status.name}</strong>
-            </div>
-            
-            <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 0.5rem;">
-                <strong>Type:</strong> {status.type.replace('_', ' ').title()}
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;">
-                <div><strong>Success Rate:</strong> {success_rate_display}</div>
-                <div><strong>Response Time:</strong> {response_time_display}</div>
-                <div><strong>Today:</strong> {status.daily_successes}/{status.daily_requests}</div>
-                <div><strong>Last Activity:</strong> {last_activity}</div>
-            </div>
-            
-            {f'<div style="margin-top: 0.5rem; padding: 0.5rem; background: #fee2e2; border-radius: 4px; font-size: 0.8rem; color: #991b1b;"><strong>Error:</strong> {status.error_message}</div>' if status.error_message else ''}
-        </div>
-    """, unsafe_allow_html=True)
+    # Use container and columns for better layout
+    with st.container():
+        # Header with status icon and name
+        col1, col2 = st.columns([1, 6])
+        with col1:
+            st.markdown(f"**{config['icon']}**")
+        with col2:
+            st.markdown(f"**{status.name}**")
+        
+        # Type information
+        st.caption(f"Type: {status.type.replace('_', ' ').title()}")
+        
+        # Metrics in columns
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Success Rate", success_rate_display)
+            st.metric("Today", f"{status.daily_successes}/{status.daily_requests}")
+        with col2:
+            st.metric("Response Time", response_time_display)
+            st.metric("Last Activity", last_activity)
+        
+        # Error message if present
+        if status.error_message:
+            st.error(f"**Error:** {status.error_message}")
+        
+        st.markdown("---")
 
 
 def _render_carrier_status_card(status: IntegrationStatus):
@@ -282,55 +281,51 @@ def _render_carrier_status_card(status: IntegrationStatus):
     success_rate_display = f"{status.success_rate:.1f}%" if status.success_rate is not None else "N/A"
     response_time_display = f"{status.response_time:.2f}s" if status.response_time is not None else "N/A"
     
-    st.markdown(f"""
-        <div style="
-            background: {config['bg']};
-            border: 1px solid {config['color']};
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        ">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.2rem;">{carrier_icon}</span>
-                <strong style="color: {config['color']}; font-size: 1.1rem;">{status.name}</strong>
-                <span style="font-size: 0.9rem; margin-left: auto;">{config['icon']}</span>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;">
-                <div><strong>Tracked Today:</strong> {status.daily_successes}</div>
-                <div><strong>Success Rate:</strong> {success_rate_display}</div>
-                <div><strong>Response Time:</strong> {response_time_display}</div>
-                <div><strong>Failed:</strong> {status.daily_failures}</div>
-            </div>
-            
-            {f'<div style="margin-top: 0.5rem; padding: 0.5rem; background: #fee2e2; border-radius: 4px; font-size: 0.8rem; color: #991b1b;"><strong>Issue:</strong> {status.error_message}</div>' if status.error_message else ''}
-        </div>
-    """, unsafe_allow_html=True)
+    # Use container and columns for better layout
+    with st.container():
+        # Header with icon, name, and status
+        col1, col2, col3 = st.columns([1, 6, 1])
+        with col1:
+            st.markdown(f"**{carrier_icon}**")
+        with col2:
+            st.markdown(f"**{status.name}**")
+        with col3:
+            st.markdown(f"**{config['icon']}**")
+        
+        # Metrics in columns
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Tracked Today", status.daily_successes)
+            st.metric("Response Time", response_time_display)
+        with col2:
+            st.metric("Success Rate", success_rate_display)
+            st.metric("Failed", status.daily_failures)
+        
+        # Error message if present
+        if status.error_message:
+            st.error(f"**Issue:** {status.error_message}")
+        
+        st.markdown("---")
 
 
 def _render_legacy_carrier_status_card(status: IntegrationStatus):
     """Render legacy carrier status card"""
     
-    st.markdown(f"""
-        <div style="
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        ">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.2rem;">📚</span>
-                <strong style="color: #475569; font-size: 1.1rem;">{status.name}</strong>
-                <span style="font-size: 0.9rem; margin-left: auto;">✅</span>
-            </div>
-            
-            <div style="font-size: 0.9rem; color: #64748b;">
-                Additional carriers available for expansion. These carriers are ready to be configured
-                when needed for specific customer requirements.
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # Use container and columns for better layout
+    with st.container():
+        # Header with icon, name, and status
+        col1, col2, col3 = st.columns([1, 6, 1])
+        with col1:
+            st.markdown("**📚**")
+        with col2:
+            st.markdown(f"**{status.name}**")
+        with col3:
+            st.markdown("**✅**")
+        
+        # Description
+        st.info("Additional carriers available for expansion. These carriers are ready to be configured when needed for specific customer requirements.")
+        
+        st.markdown("---")
 
 
 def _render_database_status(status: IntegrationStatus):
