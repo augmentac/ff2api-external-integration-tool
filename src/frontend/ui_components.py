@@ -2188,81 +2188,725 @@ def cleanup_learning_data_interface(db_manager, data_processor):
                 st.error(f"Cleanup failed: {result['error']}")
 
 def generate_sample_api_preview(df: pd.DataFrame, field_mappings: Dict[str, str], data_processor) -> Dict[str, Any]:
-    """Generate a sample API preview from the first row of mapped data"""
-    
-    # If no mappings, return empty structure
-    if not field_mappings:
-        return {
-            "message": "No field mappings configured yet",
-            "preview": {
-                "load": {},
-                "customer": {},
-                "brokerage": {}
-            }
-        }
-    
-    # If DataFrame is empty, return empty structure
-    if df.empty:
-        return {
-            "message": "No data available for preview",
-            "preview": {
-                "load": {},
-                "customer": {},
-                "brokerage": {}
-            }
-        }
+    """Generate a sample API preview from the mapped data"""
+    if not field_mappings or df.empty:
+        return {}
     
     try:
-        # Get the first row for preview
-        first_row_df = df.head(1).copy()
+        # Use the first row as sample data
+        sample_row = df.iloc[0]
         
-        # Apply field mappings to the first row
-        mapped_df, mapping_errors = data_processor.apply_mapping(first_row_df, field_mappings)
+        # Create a simple preview structure
+        preview = {}
         
-        if mapping_errors:
-            return {
-                "message": f"Mapping errors found: {', '.join(mapping_errors)}",
-                "preview": {
-                    "load": {},
-                    "customer": {},
-                    "brokerage": {}
-                }
-            }
+        # Only include fields that are mapped
+        for api_field, csv_column in field_mappings.items():
+            if csv_column and csv_column in df.columns:
+                value = sample_row[csv_column]
+                
+                # Handle different data types
+                if pd.isna(value):
+                    preview[api_field] = None
+                elif isinstance(value, str):
+                    preview[api_field] = value
+                elif isinstance(value, (int, float)):
+                    preview[api_field] = value
+                else:
+                    preview[api_field] = str(value)
         
-        # Format the mapped data for API (this will give us the proper nested structure)
-        api_preview_list = data_processor.format_for_api(mapped_df)
+        return preview
+    except Exception as e:
+        logging.error(f"Error generating API preview: {e}")
+        return {}
+
+# =============================================================================
+# External Integrations UI Components
+# =============================================================================
+
+def create_external_integrations_interface(db_manager, brokerage_name):
+    """Create the main external integrations management interface"""
+    st.header("🔌 External Integrations")
+    st.caption("Manage integrations with external APIs and data sources")
+    
+    # Get existing integrations
+    integrations = db_manager.get_external_integrations(brokerage_name)
+    
+    # Create tabs for different integration management sections
+    tab1, tab2, tab3 = st.tabs(["📋 Manage Integrations", "➕ Add New Integration", "📊 Integration History"])
+    
+    with tab1:
+        _render_integrations_list(db_manager, brokerage_name, integrations)
+    
+    with tab2:
+        _render_new_integration_form(db_manager, brokerage_name)
+    
+    with tab3:
+        _render_integration_history(db_manager, brokerage_name, integrations)
+
+def _render_integrations_list(db_manager, brokerage_name, integrations):
+    """Render the list of existing integrations"""
+    if not integrations:
+        st.info("No external integrations configured yet. Create your first integration using the 'Add New Integration' tab.")
+        return
+    
+    st.subheader("📋 Active Integrations")
+    
+    # Create grid layout for integration cards
+    cols = st.columns(2)
+    
+    for idx, integration in enumerate(integrations):
+        with cols[idx % 2]:
+            _render_integration_card(db_manager, integration)
+
+def _render_integration_card(db_manager, integration):
+    """Render a single integration card"""
+    with st.container():
+        st.markdown(f"""
+            <div class="custom-card">
+                <h4 style="margin-bottom: 0.5rem;">
+                    {_get_integration_icon(integration['type_name'])} {integration['name']}
+                </h4>
+                <p style="color: #64748b; margin: 0.25rem 0;">
+                    <strong>Type:</strong> {integration['type_display_name']}
+                </p>
+                <p style="color: #64748b; margin: 0.25rem 0; font-size: 0.9rem;">
+                    {integration['description'] or 'No description'}
+                </p>
+                <p style="color: #64748b; margin: 0.25rem 0; font-size: 0.85rem;">
+                    <strong>Last Used:</strong> {integration['last_used_at'] or 'Never'}
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
         
-        if api_preview_list:
-            api_preview = api_preview_list[0]  # Get the first (and only) preview
-            
-            # Clean up the preview for display
-            cleaned_preview = {}
-            for key, value in api_preview.items():
-                if value is not None and value != "" and value != {} and value != []:
-                    cleaned_preview[key] = value
-            
-            return {
-                "message": "Sample API preview generated from first row",
-                "preview": cleaned_preview,
-                "mapped_fields": list(field_mappings.keys()),
-                "source_row": first_row_df.iloc[0].to_dict()
-            }
+        # Action buttons
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("⚙️ Configure", key=f"config_{integration['id']}", use_container_width=True):
+                st.session_state[f"edit_integration_{integration['id']}"] = True
+        
+        with col2:
+            if st.button("▶️ Execute", key=f"execute_{integration['id']}", use_container_width=True):
+                _execute_integration(db_manager, integration)
+        
+        with col3:
+            if st.button("🗑️ Delete", key=f"delete_{integration['id']}", use_container_width=True):
+                st.session_state[f"confirm_delete_{integration['id']}"] = True
+        
+        # Show confirmation dialog if delete was clicked
+        if st.session_state.get(f"confirm_delete_{integration['id']}", False):
+            st.warning(f"⚠️ Are you sure you want to delete '{integration['name']}'?")
+            col_confirm1, col_confirm2 = st.columns(2)
+            with col_confirm1:
+                if st.button("✅ Yes, Delete", key=f"confirm_yes_{integration['id']}", type="primary"):
+                    db_manager.delete_external_integration(integration['id'])
+                    st.success(f"Integration '{integration['name']}' deleted successfully")
+                    st.session_state[f"confirm_delete_{integration['id']}"] = False
+                    st.rerun()
+            with col_confirm2:
+                if st.button("❌ Cancel", key=f"confirm_no_{integration['id']}"):
+                    st.session_state[f"confirm_delete_{integration['id']}"] = False
+                    st.rerun()
+        
+        # Show edit form if requested
+        if st.session_state.get(f"edit_integration_{integration['id']}", False):
+            _render_edit_integration_form(db_manager, integration)
+
+def _render_edit_integration_form(db_manager, integration):
+    """Render the edit integration form"""
+    st.subheader(f"✏️ Edit Integration: {integration['name']}")
+    
+    with st.form(f"edit_integration_{integration['id']}"):
+        # Basic info
+        name = st.text_input("Integration Name", value=integration['name'])
+        description = st.text_area("Description", value=integration['description'] or '')
+        
+        # Configuration based on integration type
+        config_data = integration['config_data']
+        
+        if integration['type_name'] == 'ltl_carrier':
+            _render_ltl_carrier_config(config_data)
+        elif integration['type_name'] == 'freight_api':
+            _render_freight_api_config(config_data)
+        elif integration['type_name'] == 'tracking_api':
+            _render_tracking_api_config(config_data)
         else:
-            return {
-                "message": "No valid API preview could be generated",
-                "preview": {
-                    "load": {},
-                    "customer": {},
-                    "brokerage": {}
+            _render_generic_config(config_data)
+        
+        # Authentication
+        st.subheader("🔐 Authentication")
+        auth_type = st.selectbox(
+            "Authentication Type",
+            ["api_key", "bearer_token", "basic_auth", "oauth", "custom"],
+            index=0
+        )
+        
+        auth_config = {}
+        if auth_type == "api_key":
+            auth_config['api_key'] = st.text_input("API Key", type="password")
+        elif auth_type == "bearer_token":
+            auth_config['bearer_token'] = st.text_input("Bearer Token", type="password")
+        elif auth_type == "basic_auth":
+            auth_config['username'] = st.text_input("Username")
+            auth_config['password'] = st.text_input("Password", type="password")
+        
+        # Submit buttons
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.form_submit_button("💾 Save Changes", type="primary"):
+                try:
+                    db_manager.save_external_integration(
+                        integration['brokerage_name'],
+                        name,
+                        integration['integration_type_id'],
+                        config_data,
+                        auth_config,
+                        description
+                    )
+                    st.success("Integration updated successfully!")
+                    st.session_state[f"edit_integration_{integration['id']}"] = False
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error updating integration: {e}")
+        
+        with col2:
+            if st.form_submit_button("❌ Cancel"):
+                st.session_state[f"edit_integration_{integration['id']}"] = False
+                st.rerun()
+
+def _render_new_integration_form(db_manager, brokerage_name):
+    """Render the new integration form"""
+    st.subheader("➕ Add New Integration")
+    
+    # Get available integration types
+    integration_types = db_manager.get_integration_types()
+    
+    with st.form("new_integration_form"):
+        # Basic information
+        st.subheader("📋 Basic Information")
+        
+        integration_name = st.text_input(
+            "Integration Name",
+            placeholder="e.g., UPS Tracking API",
+            help="Choose a descriptive name for this integration"
+        )
+        
+        # Integration type selection
+        type_options = {t['type_display_name']: t for t in integration_types}
+        selected_type_name = st.selectbox(
+            "Integration Type",
+            options=list(type_options.keys()),
+            help="Select the type of integration you want to create"
+        )
+        
+        selected_type = type_options[selected_type_name]
+        
+        # Show description of selected type
+        if selected_type['description']:
+            st.info(f"ℹ️ {selected_type['description']}")
+        
+        description = st.text_area(
+            "Description",
+            placeholder="Describe what this integration does...",
+            help="Optional description for documentation purposes"
+        )
+        
+        # Configuration section
+        st.subheader("⚙️ Configuration")
+        
+        config_data = {}
+        
+        # Type-specific configuration
+        if selected_type['type_name'] == 'ltl_carrier':
+            config_data = _render_ltl_carrier_config()
+        elif selected_type['type_name'] == 'freight_api':
+            config_data = _render_freight_api_config()
+        elif selected_type['type_name'] == 'tracking_api':
+            config_data = _render_tracking_api_config()
+        elif selected_type['type_name'] == 'pricing_api':
+            config_data = _render_pricing_api_config()
+        elif selected_type['type_name'] == 'warehouse_api':
+            config_data = _render_warehouse_api_config()
+        elif selected_type['type_name'] == 'custom_integration':
+            config_data = _render_custom_integration_config()
+        else:
+            config_data = _render_generic_config()
+        
+        # Authentication section
+        st.subheader("🔐 Authentication")
+        
+        auth_type = st.selectbox(
+            "Authentication Type",
+            ["api_key", "bearer_token", "basic_auth", "oauth", "custom"],
+            help="Select how to authenticate with the external API"
+        )
+        
+        auth_config = {}
+        if auth_type == "api_key":
+            auth_config['api_key'] = st.text_input("API Key", type="password")
+            auth_config['api_key_header'] = st.text_input("API Key Header", value="X-API-Key")
+        elif auth_type == "bearer_token":
+            auth_config['bearer_token'] = st.text_input("Bearer Token", type="password")
+        elif auth_type == "basic_auth":
+            auth_config['username'] = st.text_input("Username")
+            auth_config['password'] = st.text_input("Password", type="password")
+        elif auth_type == "oauth":
+            auth_config['client_id'] = st.text_input("Client ID")
+            auth_config['client_secret'] = st.text_input("Client Secret", type="password")
+            auth_config['token_url'] = st.text_input("Token URL")
+        
+        # Submit button
+        if st.form_submit_button("✅ Create Integration", type="primary"):
+            if not integration_name:
+                st.error("Please provide an integration name")
+            elif not config_data.get('base_url'):
+                st.error("Please provide a base URL")
+            else:
+                try:
+                    integration_id = db_manager.save_external_integration(
+                        brokerage_name,
+                        integration_name,
+                        selected_type['id'],
+                        config_data,
+                        auth_config,
+                        description
+                    )
+                    
+                    # Create default output configuration
+                    db_manager.save_integration_output_config(
+                        integration_id,
+                        output_name=f"{integration_name}_output",
+                        output_format="CSV",
+                        file_naming_pattern=f"{integration_name.lower().replace(' ', '_')}_{{timestamp}}"
+                    )
+                    
+                    st.success(f"Integration '{integration_name}' created successfully!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error creating integration: {e}")
+
+def _render_ltl_carrier_config(config_data=None):
+    """Render LTL carrier specific configuration"""
+    if config_data is None:
+        config_data = {}
+    
+    st.write("**LTL Carrier Configuration**")
+    
+    config_data['base_url'] = st.text_input(
+        "API Base URL",
+        value=config_data.get('base_url', ''),
+        placeholder="https://api.ltlcarrier.com/v1"
+    )
+    
+    config_data['carrier_code'] = st.text_input(
+        "Carrier Code",
+        value=config_data.get('carrier_code', ''),
+        placeholder="e.g., FEDX, UPS, ABFS"
+    )
+    
+    config_data['service_types'] = st.multiselect(
+        "Available Services",
+        ["LTL", "TL", "EXPEDITED", "GROUND", "EXPRESS"],
+        default=config_data.get('service_types', ['LTL'])
+    )
+    
+    config_data['rate_limit'] = st.number_input(
+        "Rate Limit (requests/minute)",
+        value=config_data.get('rate_limit', 100),
+        min_value=1,
+        max_value=1000
+    )
+    
+    return config_data
+
+def _render_freight_api_config(config_data=None):
+    """Render freight API specific configuration"""
+    if config_data is None:
+        config_data = {}
+    
+    st.write("**Freight API Configuration**")
+    
+    config_data['base_url'] = st.text_input(
+        "API Base URL",
+        value=config_data.get('base_url', ''),
+        placeholder="https://api.freightservice.com/v2"
+    )
+    
+    config_data['version'] = st.text_input(
+        "API Version",
+        value=config_data.get('version', 'v1'),
+        placeholder="v1, v2, etc."
+    )
+    
+    config_data['supported_modes'] = st.multiselect(
+        "Supported Transport Modes",
+        ["LTL", "FTL", "PARCEL", "OCEAN", "AIR"],
+        default=config_data.get('supported_modes', ['LTL', 'FTL'])
+    )
+    
+    config_data['timeout'] = st.number_input(
+        "Request Timeout (seconds)",
+        value=config_data.get('timeout', 30),
+        min_value=5,
+        max_value=300
+    )
+    
+    return config_data
+
+def _render_tracking_api_config(config_data=None):
+    """Render tracking API specific configuration"""
+    if config_data is None:
+        config_data = {}
+    
+    st.write("**Tracking API Configuration**")
+    
+    config_data['base_url'] = st.text_input(
+        "API Base URL",
+        value=config_data.get('base_url', ''),
+        placeholder="https://api.tracking.com/v1"
+    )
+    
+    config_data['tracking_methods'] = st.multiselect(
+        "Tracking Methods",
+        ["TRACKING_NUMBER", "PRO_NUMBER", "BOL_NUMBER", "REFERENCE_NUMBER"],
+        default=config_data.get('tracking_methods', ['TRACKING_NUMBER'])
+    )
+    
+    config_data['update_frequency'] = st.selectbox(
+        "Update Frequency",
+        ["REAL_TIME", "HOURLY", "DAILY"],
+        index=0
+    )
+    
+    config_data['webhook_url'] = st.text_input(
+        "Webhook URL (optional)",
+        value=config_data.get('webhook_url', ''),
+        placeholder="https://your-app.com/webhook/tracking"
+    )
+    
+    return config_data
+
+def _render_pricing_api_config(config_data=None):
+    """Render pricing API specific configuration"""
+    if config_data is None:
+        config_data = {}
+    
+    st.write("**Pricing API Configuration**")
+    
+    config_data['base_url'] = st.text_input(
+        "API Base URL",
+        value=config_data.get('base_url', ''),
+        placeholder="https://api.pricing.com/v1"
+    )
+    
+    config_data['pricing_models'] = st.multiselect(
+        "Pricing Models",
+        ["SPOT_RATE", "CONTRACT_RATE", "DYNAMIC_PRICING", "AUCTION"],
+        default=config_data.get('pricing_models', ['SPOT_RATE'])
+    )
+    
+    config_data['currency'] = st.selectbox(
+        "Currency",
+        ["USD", "CAD", "EUR", "GBP"],
+        index=0
+    )
+    
+    config_data['include_fuel_surcharge'] = st.checkbox(
+        "Include Fuel Surcharge",
+        value=config_data.get('include_fuel_surcharge', True)
+    )
+    
+    return config_data
+
+def _render_warehouse_api_config(config_data=None):
+    """Render warehouse API specific configuration"""
+    if config_data is None:
+        config_data = {}
+    
+    st.write("**Warehouse API Configuration**")
+    
+    config_data['base_url'] = st.text_input(
+        "API Base URL",
+        value=config_data.get('base_url', ''),
+        placeholder="https://api.warehouse.com/v1"
+    )
+    
+    config_data['warehouse_locations'] = st.text_area(
+        "Warehouse Locations (one per line)",
+        value='\n'.join(config_data.get('warehouse_locations', [])),
+        placeholder="New York, NY\nLos Angeles, CA\nChicago, IL"
+    )
+    
+    config_data['operations'] = st.multiselect(
+        "Supported Operations",
+        ["INBOUND", "OUTBOUND", "INVENTORY", "CROSS_DOCK"],
+        default=config_data.get('operations', ['INBOUND', 'OUTBOUND'])
+    )
+    
+    # Convert warehouse locations back to list
+    if config_data['warehouse_locations']:
+        config_data['warehouse_locations'] = [
+            loc.strip() for loc in config_data['warehouse_locations'].split('\n') 
+            if loc.strip()
+        ]
+    
+    return config_data
+
+def _render_custom_integration_config(config_data=None):
+    """Render custom integration configuration"""
+    if config_data is None:
+        config_data = {}
+    
+    st.write("**Custom Integration Configuration**")
+    
+    config_data['base_url'] = st.text_input(
+        "API Base URL",
+        value=config_data.get('base_url', ''),
+        placeholder="https://api.example.com/v1"
+    )
+    
+    config_data['protocol'] = st.selectbox(
+        "Protocol",
+        ["REST", "SOAP", "GraphQL", "WebSocket"],
+        index=0
+    )
+    
+    config_data['data_format'] = st.selectbox(
+        "Data Format",
+        ["JSON", "XML", "CSV", "EDI"],
+        index=0
+    )
+    
+    config_data['custom_headers'] = st.text_area(
+        "Custom Headers (JSON format)",
+        value=json.dumps(config_data.get('custom_headers', {}), indent=2),
+        placeholder='{"Content-Type": "application/json", "Custom-Header": "value"}'
+    )
+    
+    # Parse custom headers
+    try:
+        config_data['custom_headers'] = json.loads(config_data['custom_headers'])
+    except:
+        config_data['custom_headers'] = {}
+    
+    return config_data
+
+def _render_generic_config(config_data=None):
+    """Render generic configuration for any integration type"""
+    if config_data is None:
+        config_data = {}
+    
+    st.write("**Generic Configuration**")
+    
+    config_data['base_url'] = st.text_input(
+        "API Base URL",
+        value=config_data.get('base_url', ''),
+        placeholder="https://api.example.com/v1"
+    )
+    
+    config_data['timeout'] = st.number_input(
+        "Request Timeout (seconds)",
+        value=config_data.get('timeout', 30),
+        min_value=5,
+        max_value=300
+    )
+    
+    config_data['rate_limit'] = st.number_input(
+        "Rate Limit (requests/minute)",
+        value=config_data.get('rate_limit', 100),
+        min_value=1,
+        max_value=1000
+    )
+    
+    return config_data
+
+def _render_integration_history(db_manager, brokerage_name, integrations):
+    """Render integration execution history"""
+    st.subheader("📊 Integration History")
+    
+    if not integrations:
+        st.info("No integrations available to show history for.")
+        return
+    
+    # Select integration for history
+    integration_names = {f"{i['name']} ({i['type_display_name']})": i['id'] for i in integrations}
+    
+    selected_integration_name = st.selectbox(
+        "Select Integration",
+        options=list(integration_names.keys()),
+        help="Choose an integration to view its execution history"
+    )
+    
+    if selected_integration_name:
+        integration_id = integration_names[selected_integration_name]
+        history = db_manager.get_integration_execution_history(integration_id)
+        
+        if history:
+            # Create a DataFrame for better display
+            history_df = pd.DataFrame(history)
+            
+            # Format the DataFrame
+            history_df['execution_timestamp'] = pd.to_datetime(history_df['execution_timestamp'])
+            history_df['success_rate'] = (history_df['records_success'] / history_df['records_processed'] * 100).round(2)
+            
+            # Display summary metrics
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                total_executions = len(history)
+                st.metric("Total Executions", total_executions)
+            
+            with col2:
+                successful_executions = len([h for h in history if h['execution_status'] == 'SUCCESS'])
+                success_rate = (successful_executions / total_executions * 100) if total_executions > 0 else 0
+                st.metric("Success Rate", f"{success_rate:.1f}%")
+            
+            with col3:
+                total_records = sum(h['records_processed'] for h in history)
+                st.metric("Total Records", total_records)
+            
+            with col4:
+                avg_time = sum(h['execution_time_seconds'] for h in history) / len(history) if history else 0
+                st.metric("Avg Time", f"{avg_time:.2f}s")
+            
+            # Display detailed history
+            st.subheader("Execution Details")
+            
+            # Format for display
+            display_columns = ['execution_timestamp', 'execution_status', 'records_processed', 'records_success', 'records_failed', 'execution_time_seconds']
+            display_df = history_df[display_columns].copy()
+            display_df.columns = ['Timestamp', 'Status', 'Processed', 'Success', 'Failed', 'Time (s)']
+            
+            st.dataframe(display_df, use_container_width=True)
+            
+        else:
+            st.info("No execution history found for this integration.")
+
+def _execute_integration(db_manager, integration):
+    """Execute an integration using the external integration client"""
+    from src.backend.external_integration_client import ExternalIntegrationClient, OutputFileGenerator
+    import os
+    
+    st.info(f"Executing integration: {integration['name']}")
+    
+    try:
+        with st.spinner("🔄 Running integration..."):
+            # Initialize the integration client
+            client = ExternalIntegrationClient(integration)
+            
+            # Test connection first
+            connection_test = client.test_connection()
+            if not connection_test.get('success', False):
+                st.error(f"❌ Connection test failed: {connection_test.get('message', 'Unknown error')}")
+                return
+            
+            # Execute the integration
+            # For demo purposes, use sample data
+            sample_data = [
+                {
+                    'id': 'sample_001',
+                    'origin': 'New York, NY',
+                    'destination': 'Los Angeles, CA',
+                    'weight': 1500,
+                    'tracking_number': 'TRACK123456'
+                },
+                {
+                    'id': 'sample_002',
+                    'origin': 'Chicago, IL',
+                    'destination': 'Miami, FL',
+                    'weight': 2000,
+                    'tracking_number': 'TRACK654321'
                 }
-            }
+            ]
+            
+            result = client.execute_integration(sample_data)
+            
+            # Generate output file if data was returned
+            output_file_path = None
+            if result['data']:
+                # Create output directory if it doesn't exist
+                os.makedirs('data/outputs', exist_ok=True)
+                
+                # Get output configurations for this integration
+                output_configs = db_manager.get_integration_output_configs(integration['id'])
+                
+                if output_configs:
+                    output_config = output_configs[0]  # Use first config
+                    generator = OutputFileGenerator(output_config)
+                    output_file_path = generator.generate_output_file(
+                        result['data'], 
+                        integration['name']
+                    )
+            
+            # Save execution history
+            execution_id = db_manager.save_integration_execution_history(
+                integration['id'],
+                result['status'],
+                records_processed=result['records_processed'],
+                records_success=result['records_success'],
+                records_failed=result['records_failed'],
+                execution_time=result['execution_time'],
+                error_log=result['error_log'],
+                output_file_path=output_file_path,
+                triggered_by='manual'
+            )
+            
+            # Show results
+            if result['status'] == 'SUCCESS':
+                st.success(f"✅ Integration executed successfully!")
+                
+                # Show summary metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Records Processed", result['records_processed'])
+                with col2:
+                    st.metric("Success", result['records_success'])
+                with col3:
+                    st.metric("Failed", result['records_failed'])
+                
+                # Show output file info
+                if output_file_path:
+                    st.info(f"📄 Output file generated: `{output_file_path}`")
+                
+                # Show execution details
+                if result['data']:
+                    with st.expander("📊 View Integration Results"):
+                        st.json(result['data'][:5])  # Show first 5 results
+                        if len(result['data']) > 5:
+                            st.caption(f"... and {len(result['data']) - 5} more records")
+                
+            else:
+                st.error(f"❌ Integration failed: {result.get('error_log', ['Unknown error'])}")
+            
+            # Update last used timestamp
+            db_manager.update_integration_last_used(integration['id'])
             
     except Exception as e:
-        return {
-            "message": f"Error generating API preview: {str(e)}",
-            "preview": {
-                "load": {},
-                "customer": {},
-                "brokerage": {}
-            }
-        }
+        st.error(f"❌ Error executing integration: {e}")
+        
+        # Still save the failed execution to history
+        db_manager.save_integration_execution_history(
+            integration['id'],
+            'FAILED',
+            records_processed=0,
+            records_success=0,
+            records_failed=0,
+            execution_time=0,
+            error_log=[str(e)],
+            triggered_by='manual'
+        )
+
+def _get_integration_icon(integration_type):
+    """Get icon for integration type"""
+    icon_map = {
+        'ltl_carrier': '🚛',
+        'freight_api': '📦',
+        'tracking_api': '📍',
+        'pricing_api': '💰',
+        'customs_api': '🛃',
+        'warehouse_api': '🏭',
+        'edi_integration': '📄',
+        'custom_integration': '🔧'
+    }
+    return icon_map.get(integration_type, '🔌')

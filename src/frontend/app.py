@@ -36,7 +36,8 @@ from src.frontend.ui_components import (
     create_learning_enhanced_mapping_interface,
     create_learning_analytics_dashboard,
     update_learning_with_processing_results,
-    get_full_api_schema
+    get_full_api_schema,
+    create_external_integrations_interface
 )
 
 # Create logs directory if it doesn't exist
@@ -1242,6 +1243,18 @@ def main_workflow(db_manager, data_processor):
     
     brokerage_name = st.session_state.brokerage_name
     
+    # === TAB SYSTEM FOR DIFFERENT WORKFLOWS ===
+    # Create tabs for different functionality
+    tab1, tab2 = st.tabs(["📤 CSV → API Processing", "🔌 External Integrations"])
+    
+    with tab1:
+        _render_csv_api_workflow(db_manager, data_processor)
+    
+    with tab2:
+        _render_external_integrations_workflow(db_manager, brokerage_name)
+
+def _render_csv_api_workflow(db_manager, data_processor):
+    """Render the original CSV to API processing workflow"""
     # === PROGRESSIVE DISCLOSURE LANDING PAGE ===
     # Only show what's needed at each step
     
@@ -1256,6 +1269,22 @@ def main_workflow(db_manager, data_processor):
         # === PROGRESSIVE WORKFLOW ===
         # Show progress and workflow sections after file upload
         _render_workflow_with_progress(db_manager, data_processor)
+
+def _render_external_integrations_workflow(db_manager, brokerage_name):
+    """Render the external integrations workflow"""
+    from src.frontend.ui_components import create_external_integrations_interface
+    
+    # Add a brief introduction
+    st.markdown("""
+        ### 🔌 External Integrations
+        
+        Connect with external APIs and data sources to enrich your freight data. 
+        Pull information from LTL carriers, tracking systems, pricing APIs, and more to create 
+        enhanced output files with additional insights.
+    """)
+    
+    # Show the external integrations interface
+    create_external_integrations_interface(db_manager, brokerage_name)
 
 def _render_landing_page():
     """Clean landing page focused on file upload"""

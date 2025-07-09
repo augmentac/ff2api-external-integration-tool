@@ -166,6 +166,101 @@ class DatabaseManager:
             )
         ''')
         
+        # External integrations tables
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS integration_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type_name TEXT UNIQUE NOT NULL,
+                type_display_name TEXT NOT NULL,
+                description TEXT,
+                default_config TEXT,
+                is_active BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS external_integrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                brokerage_name TEXT NOT NULL,
+                integration_name TEXT NOT NULL,
+                integration_type_id INTEGER NOT NULL,
+                description TEXT,
+                config_data TEXT NOT NULL,
+                auth_credentials TEXT,
+                is_active BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_used_at TIMESTAMP,
+                created_by TEXT,
+                UNIQUE(brokerage_name, integration_name),
+                FOREIGN KEY (integration_type_id) REFERENCES integration_types (id)
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS integration_data_mappings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                integration_id INTEGER NOT NULL,
+                source_field TEXT NOT NULL,
+                target_field TEXT NOT NULL,
+                transformation_rule TEXT,
+                is_required BOOLEAN DEFAULT 0,
+                default_value TEXT,
+                validation_rule TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (integration_id) REFERENCES external_integrations (id) ON DELETE CASCADE
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS integration_execution_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                integration_id INTEGER NOT NULL,
+                execution_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                execution_status TEXT NOT NULL,
+                records_processed INTEGER DEFAULT 0,
+                records_success INTEGER DEFAULT 0,
+                records_failed INTEGER DEFAULT 0,
+                execution_time_seconds REAL,
+                error_log TEXT,
+                output_file_path TEXT,
+                triggered_by TEXT,
+                session_id TEXT,
+                FOREIGN KEY (integration_id) REFERENCES external_integrations (id)
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS integration_output_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                integration_id INTEGER NOT NULL,
+                output_name TEXT NOT NULL,
+                output_format TEXT NOT NULL,
+                output_template TEXT,
+                output_fields TEXT,
+                file_naming_pattern TEXT,
+                schedule_config TEXT,
+                is_active BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (integration_id) REFERENCES external_integrations (id) ON DELETE CASCADE
+            )
+        ''')
+        
+        # Insert default integration types
+        cursor.execute('''
+            INSERT OR IGNORE INTO integration_types (type_name, type_display_name, description, default_config)
+            VALUES 
+                ('ltl_carrier', 'LTL Carrier', 'Integration with LTL carrier systems for rate quotes and tracking', '{"api_type": "rest", "auth_type": "bearer", "rate_limit": 100}'),
+                ('freight_api', 'Freight API', 'Generic freight and logistics API integration', '{"api_type": "rest", "auth_type": "api_key", "rate_limit": 200}'),
+                ('tracking_api', 'Tracking API', 'Shipment tracking and visibility API', '{"api_type": "rest", "auth_type": "oauth", "rate_limit": 500}'),
+                ('pricing_api', 'Pricing API', 'Freight pricing and rate calculation API', '{"api_type": "rest", "auth_type": "bearer", "rate_limit": 100}'),
+                ('customs_api', 'Customs API', 'Customs and border documentation API', '{"api_type": "rest", "auth_type": "certificate", "rate_limit": 50}'),
+                ('warehouse_api', 'Warehouse API', 'Warehouse management system integration', '{"api_type": "rest", "auth_type": "basic", "rate_limit": 300}'),
+                ('edi_integration', 'EDI Integration', 'Electronic Data Interchange for freight documents', '{"protocol": "edi", "standards": ["x12", "edifact"], "rate_limit": 1000}'),
+                ('custom_integration', 'Custom Integration', 'Custom API or data source integration', '{"api_type": "configurable", "auth_type": "configurable", "rate_limit": 100}')
+        ''')
+        
         conn.commit()
         
         # Migrate existing databases to new schema
@@ -1668,13 +1763,13 @@ class DatabaseManager:
             # Import interactions
             for interaction in learning_data.get('mapping_interactions', []):
                 cursor.execute('''
-                    INSERT OR REPLACE INTO mapping_interactions 
-                    (session_id, brokerage_name, configuration_name, timestamp,
-                     file_headers, suggested_mappings, final_mappings, 
-                     suggestions_accepted, manual_corrections, total_fields,
-                     processing_success_rate)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO mapping_interactions
+                    (id, session_id, brokerage_name, configuration_name, timestamp,
+                     file_headers, suggested_mappings, final_mappings, suggestions_accepted,
+                     manual_corrections, processing_success_rate, total_fields, user_satisfaction)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
+                    interaction.get('id'),
                     interaction.get('session_id'),
                     interaction.get('brokerage_name'),
                     interaction.get('configuration_name'),
@@ -1684,8 +1779,9 @@ class DatabaseManager:
                     interaction.get('final_mappings'),
                     interaction.get('suggestions_accepted'),
                     interaction.get('manual_corrections'),
+                    interaction.get('processing_success_rate'),
                     interaction.get('total_fields'),
-                    interaction.get('processing_success_rate')
+                    interaction.get('user_satisfaction')
                 ))
             
             # Import decisions
@@ -1729,10 +1825,432 @@ class DatabaseManager:
                 ))
             
             conn.commit()
+            return True
             
         except Exception as e:
             conn.rollback()
             logging.error(f"Error importing learning data: {e}")
+            return False
+        finally:
+            conn.close()
+
+    # =============================================================================
+    # External Integrations Management
+    # =============================================================================
+    
+    def get_integration_types(self):
+        """Get all available integration types"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, type_name, type_display_name, description, default_config, is_active
+            FROM integration_types
+            WHERE is_active = 1
+            ORDER BY type_display_name
+        ''')
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        return [
+            {
+                'id': row[0],
+                'type_name': row[1],
+                'type_display_name': row[2],
+                'description': row[3],
+                'default_config': json.loads(row[4]) if row[4] else {},
+                'is_active': row[5]
+            }
+            for row in results
+        ]
+    
+    def save_external_integration(self, brokerage_name, integration_name, integration_type_id, 
+                                config_data, auth_credentials=None, description=None, created_by=None):
+        """Save or update an external integration"""
+        # Input validation
+        if not brokerage_name or not isinstance(brokerage_name, str):
+            raise ValueError("Invalid brokerage name")
+        if not integration_name or not isinstance(integration_name, str):
+            raise ValueError("Invalid integration name")
+        if not integration_type_id or not isinstance(integration_type_id, int):
+            raise ValueError("Invalid integration type ID")
+        if not config_data or not isinstance(config_data, dict):
+            raise ValueError("Invalid configuration data")
+        
+        # Sanitize names
+        import re
+        safe_brokerage_name = re.sub(r'[^\w\s-]', '', brokerage_name.strip())[:100]
+        safe_integration_name = re.sub(r'[^\w\s-]', '', integration_name.strip())[:100]
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # Encrypt auth credentials if provided
+            encrypted_credentials = None
+            if auth_credentials:
+                key = self._get_encryption_key()
+                f = Fernet(key)
+                encrypted_credentials = f.encrypt(json.dumps(auth_credentials).encode())
+            
+            # Check if integration exists
+            cursor.execute('''
+                SELECT id FROM external_integrations 
+                WHERE brokerage_name = ? AND integration_name = ?
+            ''', (safe_brokerage_name, safe_integration_name))
+            
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Update existing integration
+                integration_id = existing[0]
+                cursor.execute('''
+                    UPDATE external_integrations 
+                    SET integration_type_id = ?, config_data = ?, auth_credentials = ?, 
+                        description = ?, updated_at = ?, last_used_at = ?
+                    WHERE id = ?
+                ''', (
+                    integration_type_id, json.dumps(config_data), encrypted_credentials,
+                    description, datetime.now(), datetime.now(), integration_id
+                ))
+            else:
+                # Create new integration
+                cursor.execute('''
+                    INSERT INTO external_integrations 
+                    (brokerage_name, integration_name, integration_type_id, config_data, 
+                     auth_credentials, description, last_used_at, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    safe_brokerage_name, safe_integration_name, integration_type_id,
+                    json.dumps(config_data), encrypted_credentials, description,
+                    datetime.now(), created_by
+                ))
+                integration_id = cursor.lastrowid
+            
+            conn.commit()
+            return integration_id
+            
+        except Exception as e:
+            conn.rollback()
+            logging.error(f"Error saving external integration: {e}")
             raise
         finally:
-            conn.close() 
+            conn.close()
+    
+    def get_external_integrations(self, brokerage_name):
+        """Get all external integrations for a brokerage"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT ei.id, ei.integration_name, ei.description, ei.config_data, 
+                   ei.auth_credentials, ei.is_active, ei.created_at, ei.updated_at, 
+                   ei.last_used_at, ei.created_by,
+                   it.type_name, it.type_display_name, it.description as type_description
+            FROM external_integrations ei
+            JOIN integration_types it ON ei.integration_type_id = it.id
+            WHERE ei.brokerage_name = ? AND ei.is_active = 1
+            ORDER BY ei.last_used_at DESC, ei.updated_at DESC
+        ''', (brokerage_name,))
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        integrations = []
+        for row in results:
+            integration_id, name, desc, config, creds, is_active, created, updated, last_used, created_by, type_name, type_display, type_desc = row
+            
+            # Decrypt auth credentials if present
+            decrypted_credentials = None
+            if creds:
+                try:
+                    key = self._get_encryption_key()
+                    f = Fernet(key)
+                    decrypted_credentials = json.loads(f.decrypt(creds).decode())
+                except Exception as e:
+                    logging.warning(f"Could not decrypt credentials for integration {name}: {e}")
+            
+            integrations.append({
+                'id': integration_id,
+                'name': name,
+                'description': desc,
+                'config_data': json.loads(config),
+                'auth_credentials': decrypted_credentials,
+                'is_active': is_active,
+                'created_at': created,
+                'updated_at': updated,
+                'last_used_at': last_used,
+                'created_by': created_by,
+                'type_name': type_name,
+                'type_display_name': type_display,
+                'type_description': type_desc
+            })
+        
+        return integrations
+    
+    def get_external_integration(self, integration_id):
+        """Get a specific external integration by ID"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT ei.id, ei.brokerage_name, ei.integration_name, ei.description, 
+                   ei.config_data, ei.auth_credentials, ei.is_active, ei.created_at, 
+                   ei.updated_at, ei.last_used_at, ei.created_by,
+                   it.type_name, it.type_display_name, it.description as type_description
+            FROM external_integrations ei
+            JOIN integration_types it ON ei.integration_type_id = it.id
+            WHERE ei.id = ?
+        ''', (integration_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            integration_id, brokerage_name, name, desc, config, creds, is_active, created, updated, last_used, created_by, type_name, type_display, type_desc = result
+            
+            # Decrypt auth credentials if present
+            decrypted_credentials = None
+            if creds:
+                try:
+                    key = self._get_encryption_key()
+                    f = Fernet(key)
+                    decrypted_credentials = json.loads(f.decrypt(creds).decode())
+                except Exception as e:
+                    logging.warning(f"Could not decrypt credentials for integration {name}: {e}")
+            
+            return {
+                'id': integration_id,
+                'brokerage_name': brokerage_name,
+                'name': name,
+                'description': desc,
+                'config_data': json.loads(config),
+                'auth_credentials': decrypted_credentials,
+                'is_active': is_active,
+                'created_at': created,
+                'updated_at': updated,
+                'last_used_at': last_used,
+                'created_by': created_by,
+                'type_name': type_name,
+                'type_display_name': type_display,
+                'type_description': type_desc
+            }
+        
+        return None
+    
+    def delete_external_integration(self, integration_id):
+        """Delete an external integration (soft delete)"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE external_integrations 
+            SET is_active = 0, updated_at = ?
+            WHERE id = ?
+        ''', (datetime.now(), integration_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return cursor.rowcount > 0
+    
+    def save_integration_data_mappings(self, integration_id, mappings):
+        """Save data mappings for an integration"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # Clear existing mappings
+            cursor.execute('''
+                DELETE FROM integration_data_mappings WHERE integration_id = ?
+            ''', (integration_id,))
+            
+            # Insert new mappings
+            for mapping in mappings:
+                cursor.execute('''
+                    INSERT INTO integration_data_mappings 
+                    (integration_id, source_field, target_field, transformation_rule, 
+                     is_required, default_value, validation_rule)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    integration_id,
+                    mapping.get('source_field'),
+                    mapping.get('target_field'),
+                    mapping.get('transformation_rule'),
+                    mapping.get('is_required', False),
+                    mapping.get('default_value'),
+                    mapping.get('validation_rule')
+                ))
+            
+            conn.commit()
+            return True
+            
+        except Exception as e:
+            conn.rollback()
+            logging.error(f"Error saving integration data mappings: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_integration_data_mappings(self, integration_id):
+        """Get data mappings for an integration"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, source_field, target_field, transformation_rule, 
+                   is_required, default_value, validation_rule
+            FROM integration_data_mappings
+            WHERE integration_id = ?
+            ORDER BY source_field
+        ''', (integration_id,))
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        return [
+            {
+                'id': row[0],
+                'source_field': row[1],
+                'target_field': row[2],
+                'transformation_rule': row[3],
+                'is_required': row[4],
+                'default_value': row[5],
+                'validation_rule': row[6]
+            }
+            for row in results
+        ]
+    
+    def save_integration_execution_history(self, integration_id, execution_status, 
+                                         records_processed=0, records_success=0, records_failed=0,
+                                         execution_time=0.0, error_log=None, output_file_path=None,
+                                         triggered_by=None, session_id=None):
+        """Save integration execution history"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO integration_execution_history
+            (integration_id, execution_status, records_processed, records_success,
+             records_failed, execution_time_seconds, error_log, output_file_path,
+             triggered_by, session_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            integration_id, execution_status, records_processed, records_success,
+            records_failed, execution_time, 
+            json.dumps(error_log) if error_log else None,
+            output_file_path, triggered_by, session_id
+        ))
+        
+        execution_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        return execution_id
+    
+    def get_integration_execution_history(self, integration_id, limit=50):
+        """Get execution history for an integration"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, execution_timestamp, execution_status, records_processed,
+                   records_success, records_failed, execution_time_seconds,
+                   error_log, output_file_path, triggered_by, session_id
+            FROM integration_execution_history
+            WHERE integration_id = ?
+            ORDER BY execution_timestamp DESC
+            LIMIT ?
+        ''', (integration_id, limit))
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        return [
+            {
+                'id': row[0],
+                'execution_timestamp': row[1],
+                'execution_status': row[2],
+                'records_processed': row[3],
+                'records_success': row[4],
+                'records_failed': row[5],
+                'execution_time_seconds': row[6],
+                'error_log': json.loads(row[7]) if row[7] else None,
+                'output_file_path': row[8],
+                'triggered_by': row[9],
+                'session_id': row[10]
+            }
+            for row in results
+        ]
+    
+    def save_integration_output_config(self, integration_id, output_name, output_format,
+                                     output_template=None, output_fields=None,
+                                     file_naming_pattern=None, schedule_config=None):
+        """Save output configuration for an integration"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO integration_output_configs
+            (integration_id, output_name, output_format, output_template,
+             output_fields, file_naming_pattern, schedule_config)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            integration_id, output_name, output_format, output_template,
+            json.dumps(output_fields) if output_fields else None,
+            file_naming_pattern,
+            json.dumps(schedule_config) if schedule_config else None
+        ))
+        
+        config_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        return config_id
+    
+    def get_integration_output_configs(self, integration_id):
+        """Get output configurations for an integration"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, output_name, output_format, output_template,
+                   output_fields, file_naming_pattern, schedule_config, is_active
+            FROM integration_output_configs
+            WHERE integration_id = ? AND is_active = 1
+            ORDER BY output_name
+        ''', (integration_id,))
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        return [
+            {
+                'id': row[0],
+                'output_name': row[1],
+                'output_format': row[2],
+                'output_template': row[3],
+                'output_fields': json.loads(row[4]) if row[4] else None,
+                'file_naming_pattern': row[5],
+                'schedule_config': json.loads(row[6]) if row[6] else None,
+                'is_active': row[7]
+            }
+            for row in results
+        ]
+    
+    def update_integration_last_used(self, integration_id):
+        """Update the last used timestamp for an integration"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE external_integrations 
+            SET last_used_at = ?
+            WHERE id = ?
+        ''', (datetime.now(), integration_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return cursor.rowcount > 0 
