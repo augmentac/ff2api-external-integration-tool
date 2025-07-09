@@ -261,6 +261,9 @@ class LTLTrackingClient:
         # Check if this is FedEx and needs special handling
         is_fedex = 'fedex' in carrier_info.get('name', '').lower()
         
+        # Check if this is Peninsula and needs special SPA handling
+        is_peninsula = 'peninsula' in carrier_info.get('name', '').lower()
+        
         # Check if this is an SPA application (like Peninsula)
         is_spa = carrier_info.get('spa_app', False)
         
@@ -273,20 +276,32 @@ class LTLTrackingClient:
                         return tracking_data
                     # If FedEx-specific method fails, continue with general method
                 
+                # Special handling for Peninsula
+                if is_peninsula:
+                    # Extract PRO number from URL
+                    import re
+                    pro_match = re.search(r'pro_number=([^&]+)', tracking_url)
+                    if pro_match:
+                        pro_number = pro_match.group(1)
+                        tracking_data = self._scrape_peninsula_tracking(tracking_url, pro_number)
+                        if tracking_data:
+                            return tracking_data
+                    # If Peninsula-specific method fails, continue with general method
+                
                 # Make the request with carrier-specific headers
                 headers = self._get_carrier_specific_headers(carrier_info)
                 response = self.session.get(tracking_url, timeout=self.timeout, headers=headers)
                 response.raise_for_status()
                 
                 # For SPA applications, we may need to wait for JavaScript to load
-                if is_spa:
+                if is_spa or is_peninsula:
                     time.sleep(3)  # Give SPA time to load
                 
                 # Parse the HTML
                 soup = BeautifulSoup(response.content, 'html.parser')
                 
                 # For Peninsula and other SPAs, try to extract data from scripts first
-                if is_spa:
+                if is_spa or is_peninsula:
                     script_data = self._extract_spa_data(response.text, carrier_info)
                     if script_data:
                         return script_data
@@ -476,6 +491,19 @@ class LTLTrackingClient:
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Referer': 'https://www2.rlcarriers.com/'
+            }
+        elif 'peninsula' in carrier_name:
+            return {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.peninsulatruck.com/',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'no-cache'
             }
         
         # Default headers for other carriers
@@ -686,7 +714,7 @@ class LTLTrackingClient:
 
     def _extract_peninsula_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """
-        Specific extraction for Peninsula Truck Lines SPA.
+        Enhanced extraction for Peninsula Truck Lines SPA.
         
         Args:
             soup: BeautifulSoup parsed HTML
@@ -714,10 +742,37 @@ class LTLTrackingClient:
                         except:
                             continue
             
-            # Look for Peninsula-specific elements
-            peninsula_status = soup.select_one('[class*="peninsula"], [id*="peninsula"], [class*="track"]')
-            if peninsula_status:
-                tracking_data['status'] = self._clean_text(peninsula_status.get_text())
+            # Look for Peninsula-specific elements that might appear after JS loads
+            peninsula_selectors = [
+                '[class*="peninsula"]', '[id*="peninsula"]', '[class*="track"]',
+                '[class*="status"]', '[class*="shipment"]', '[class*="delivery"]',
+                '.tracking-result', '.pro-status', '.shipment-status'
+            ]
+            
+            for selector in peninsula_selectors:
+                element = soup.select_one(selector)
+                if element:
+                    text = self._clean_text(element.get_text())
+                    if text and not self._is_generic_website_content(text):
+                        tracking_data['status'] = text
+                        break
+            
+            # Look for API endpoints or configuration in script tags
+            api_patterns = [
+                r'api["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'endpoint["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'trackingUrl["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'/api/[^"\']+',
+                r'track[^"\']*api[^"\']*'
+            ]
+            
+            for script in script_tags:
+                script_content = script.get_text()
+                for pattern in api_patterns:
+                    matches = re.findall(pattern, script_content, re.IGNORECASE)
+                    if matches:
+                        tracking_data['api_endpoint'] = matches[0]
+                        break
             
             # Check for any hidden form data or meta tags
             meta_tags = soup.find_all('meta')
@@ -731,6 +786,255 @@ class LTLTrackingClient:
             logging.debug(f"Error extracting Peninsula data: {e}")
         
         return tracking_data
+    
+    def _scrape_peninsula_tracking(self, tracking_url: str, pro_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Enhanced Peninsula tracking with API endpoint detection and extended wait times.
+        
+        Args:
+            tracking_url: Peninsula tracking URL
+            pro_number: PRO number to track
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        try:
+            # Method 1: Try to find and call their API directly
+            api_data = self._try_peninsula_api(pro_number)
+            if api_data:
+                return api_data
+            
+            # Method 2: Load the page and wait for SPA to initialize
+            peninsula_headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.peninsulatruck.com/',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin'
+            }
+            
+            response = self.session.get(tracking_url, headers=peninsula_headers, timeout=self.timeout)
+            if response.status_code == 200:
+                # Wait longer for SPA to load
+                time.sleep(5)
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Try to extract any API endpoints from the page
+                api_endpoints = self._extract_peninsula_api_endpoints(soup, pro_number)
+                for endpoint in api_endpoints:
+                    api_data = self._call_peninsula_api(endpoint, pro_number)
+                    if api_data:
+                        return api_data
+                
+                # Fallback to regular extraction
+                return self._extract_peninsula_data(soup)
+            
+        except Exception as e:
+            logging.debug(f"Peninsula tracking failed: {e}")
+        
+        return None
+    
+    def _try_peninsula_api(self, pro_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Try common Peninsula API endpoints.
+        
+        Args:
+            pro_number: PRO number to track
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        # Common API endpoints for Peninsula
+        api_endpoints = [
+            f'https://www.peninsulatruck.com/api/tracking/{pro_number}',
+            f'https://www.peninsulatruck.com/api/track?pro={pro_number}',
+            f'https://www.peninsulatruck.com/_/api/tracking?pro_number={pro_number}',
+            f'https://www.peninsulatruck.com/_/api/track/{pro_number}',
+            f'https://api.peninsulatruck.com/tracking/{pro_number}',
+            f'https://api.peninsulatruck.com/track?pro={pro_number}'
+        ]
+        
+        api_headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': f'https://www.peninsulatruck.com/_/#/track/?pro_number={pro_number}',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
+        for endpoint in api_endpoints:
+            try:
+                response = self.session.get(endpoint, headers=api_headers, timeout=10)
+                if response.status_code == 200:
+                    try:
+                        json_data = response.json()
+                        tracking_data = self._parse_peninsula_api_response(json_data)
+                        if tracking_data:
+                            return tracking_data
+                    except:
+                        # Try to parse as text if JSON fails
+                        text_data = response.text
+                        if any(keyword in text_data.lower() for keyword in ['delivered', 'transit', 'picked up', 'terminal']):
+                            return {'status': text_data.strip()}
+            except:
+                continue
+        
+        return None
+    
+    def _extract_peninsula_api_endpoints(self, soup: BeautifulSoup, pro_number: str) -> List[str]:
+        """
+        Extract API endpoints from Peninsula's SPA page.
+        
+        Args:
+            soup: BeautifulSoup parsed HTML
+            pro_number: PRO number for URL construction
+            
+        Returns:
+            List of potential API endpoints
+        """
+        endpoints = []
+        
+        try:
+            script_tags = soup.find_all('script')
+            for script in script_tags:
+                script_content = script.get_text()
+                
+                # Look for API endpoint patterns
+                import re
+                patterns = [
+                    r'["\']([^"\']*api[^"\']*track[^"\']*)["\']',
+                    r'["\']([^"\']*track[^"\']*api[^"\']*)["\']',
+                    r'baseUrl["\']?\s*:\s*["\']([^"\']+)["\']',
+                    r'apiUrl["\']?\s*:\s*["\']([^"\']+)["\']',
+                    r'trackingApi["\']?\s*:\s*["\']([^"\']+)["\']'
+                ]
+                
+                for pattern in patterns:
+                    matches = re.findall(pattern, script_content, re.IGNORECASE)
+                    for match in matches:
+                        if 'api' in match.lower() and 'track' in match.lower():
+                            # Construct full URL if needed
+                            if match.startswith('/'):
+                                endpoint = f'https://www.peninsulatruck.com{match}'
+                            elif not match.startswith('http'):
+                                endpoint = f'https://www.peninsulatruck.com/{match}'
+                            else:
+                                endpoint = match
+                            
+                            # Add PRO number to endpoint
+                            if '?' in endpoint:
+                                endpoint = f'{endpoint}&pro_number={pro_number}'
+                            else:
+                                endpoint = f'{endpoint}?pro_number={pro_number}'
+                            
+                            endpoints.append(endpoint)
+        
+        except Exception as e:
+            logging.debug(f"Error extracting Peninsula API endpoints: {e}")
+        
+        return endpoints
+    
+    def _call_peninsula_api(self, endpoint: str, pro_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Call Peninsula API endpoint.
+        
+        Args:
+            endpoint: API endpoint URL
+            pro_number: PRO number
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        try:
+            api_headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': f'https://www.peninsulatruck.com/_/#/track/?pro_number={pro_number}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+            
+            response = self.session.get(endpoint, headers=api_headers, timeout=10)
+            if response.status_code == 200:
+                try:
+                    json_data = response.json()
+                    return self._parse_peninsula_api_response(json_data)
+                except:
+                    # Try to parse as text
+                    text_data = response.text.strip()
+                    if text_data and any(keyword in text_data.lower() for keyword in ['delivered', 'transit', 'picked up', 'terminal']):
+                        return {'status': text_data}
+        
+        except Exception as e:
+            logging.debug(f"Error calling Peninsula API {endpoint}: {e}")
+        
+        return None
+    
+    def _parse_peninsula_api_response(self, json_data: Dict) -> Optional[Dict[str, Any]]:
+        """
+        Parse Peninsula API JSON response.
+        
+        Args:
+            json_data: JSON response from Peninsula API
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        tracking_data = {}
+        
+        try:
+            # Common JSON structure patterns
+            if isinstance(json_data, dict):
+                # Direct status field
+                if 'status' in json_data:
+                    tracking_data['status'] = str(json_data['status'])
+                
+                # Nested tracking data
+                if 'tracking' in json_data:
+                    tracking_info = json_data['tracking']
+                    if isinstance(tracking_info, dict):
+                        if 'status' in tracking_info:
+                            tracking_data['status'] = str(tracking_info['status'])
+                        if 'location' in tracking_info:
+                            tracking_data['location'] = str(tracking_info['location'])
+                        if 'event' in tracking_info:
+                            tracking_data['event'] = str(tracking_info['event'])
+                
+                # Shipment data
+                if 'shipment' in json_data:
+                    shipment_info = json_data['shipment']
+                    if isinstance(shipment_info, dict):
+                        if 'status' in shipment_info:
+                            tracking_data['status'] = str(shipment_info['status'])
+                        if 'current_location' in shipment_info:
+                            tracking_data['location'] = str(shipment_info['current_location'])
+                
+                # Array of tracking events
+                if 'events' in json_data and isinstance(json_data['events'], list):
+                    events = json_data['events']
+                    if events:
+                        latest_event = events[0]
+                        if isinstance(latest_event, dict):
+                            if 'status' in latest_event:
+                                tracking_data['status'] = str(latest_event['status'])
+                            if 'location' in latest_event:
+                                tracking_data['location'] = str(latest_event['location'])
+                            if 'description' in latest_event:
+                                tracking_data['event'] = str(latest_event['description'])
+            
+            # Handle array response
+            elif isinstance(json_data, list) and json_data:
+                first_item = json_data[0]
+                if isinstance(first_item, dict):
+                    return self._parse_peninsula_api_response(first_item)
+        
+        except Exception as e:
+            logging.debug(f"Error parsing Peninsula API response: {e}")
+        
+        return tracking_data if tracking_data else None
     
     def _generic_fallback_extraction(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """
