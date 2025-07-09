@@ -487,20 +487,102 @@ class LTLTrackingClient:
         tracking_data = {}
         
         try:
-            # Look for mobile-specific elements
-            status_element = soup.select_one('.tracking-status, .shipment-status, [class*="status"]')
-            if status_element:
-                tracking_data['status'] = self._clean_text(status_element.get_text())
+            # Enhanced FedEx extraction with multiple selectors
+            # Look for status information
+            status_selectors = [
+                '.tracking-status', '.shipment-status', '[class*="status"]',
+                '[data-testid="trackingStatus"]', '[data-cy="trackingStatus"]',
+                '.fedex-status', '.delivery-status', '.scan-status',
+                '.track-status', '.package-status'
+            ]
             
-            location_element = soup.select_one('.location, .current-location, [class*="location"]')
-            if location_element:
-                tracking_data['location'] = self._clean_text(location_element.get_text())
+            for selector in status_selectors:
+                status_element = soup.select_one(selector)
+                if status_element:
+                    status_text = self._clean_text(status_element.get_text())
+                    if status_text and len(status_text) > 2:
+                        tracking_data['status'] = status_text
+                        break
             
-            # Look for tracking events
-            event_elements = soup.select('.tracking-event, .scan-event, [class*="event"]')
-            if event_elements:
-                latest_event = event_elements[0]
-                tracking_data['event'] = self._clean_text(latest_event.get_text())
+            # Look for location information
+            location_selectors = [
+                '.location', '.current-location', '[class*="location"]',
+                '[data-testid="location"]', '[data-cy="location"]',
+                '.fedex-location', '.delivery-location', '.scan-location',
+                '.track-location', '.package-location', '.city-state'
+            ]
+            
+            for selector in location_selectors:
+                location_element = soup.select_one(selector)
+                if location_element:
+                    location_text = self._clean_text(location_element.get_text())
+                    if location_text and len(location_text) > 2:
+                        tracking_data['location'] = location_text
+                        break
+            
+            # Look for tracking events with enhanced selectors
+            event_selectors = [
+                '.tracking-event', '.scan-event', '[class*="event"]',
+                '[data-testid="scanEvent"]', '[data-cy="scanEvent"]',
+                '.fedex-event', '.delivery-event', '.latest-event',
+                '.scan-description', '.event-description'
+            ]
+            
+            for selector in event_selectors:
+                event_elements = soup.select(selector)
+                if event_elements:
+                    latest_event = event_elements[0]
+                    event_text = self._clean_text(latest_event.get_text())
+                    if event_text and len(event_text) > 2:
+                        tracking_data['event'] = event_text
+                        break
+            
+            # Look for timestamp information
+            timestamp_selectors = [
+                '.timestamp', '.date-time', '.event-date', '.scan-date',
+                '[class*="date"]', '[class*="time"]', '.delivery-date',
+                '.fedex-date', '.track-date'
+            ]
+            
+            for selector in timestamp_selectors:
+                timestamp_element = soup.select_one(selector)
+                if timestamp_element:
+                    timestamp_text = self._clean_text(timestamp_element.get_text())
+                    if timestamp_text and len(timestamp_text) > 5:
+                        tracking_data['timestamp'] = timestamp_text
+                        break
+            
+            # Special handling for FedEx's table structure
+            tables = soup.find_all('table')
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:
+                        header = self._clean_text(cells[0].get_text()).lower()
+                        value = self._clean_text(cells[1].get_text())
+                        
+                        if value and len(value) > 2:
+                            if any(keyword in header for keyword in ['status', 'delivery', 'condition']):
+                                tracking_data['status'] = value
+                            elif any(keyword in header for keyword in ['location', 'city', 'destination']):
+                                tracking_data['location'] = value
+                            elif any(keyword in header for keyword in ['date', 'time', 'delivered']):
+                                tracking_data['timestamp'] = value
+                            elif any(keyword in header for keyword in ['event', 'activity', 'description']):
+                                tracking_data['event'] = value
+            
+            # Look for any text that contains "delivered" or other status indicators
+            if not tracking_data.get('status'):
+                all_text = soup.get_text().lower()
+                if 'delivered' in all_text:
+                    tracking_data['status'] = 'Delivered'
+                elif 'in transit' in all_text:
+                    tracking_data['status'] = 'In Transit'
+                elif 'picked up' in all_text:
+                    tracking_data['status'] = 'Picked Up'
+                elif 'out for delivery' in all_text:
+                    tracking_data['status'] = 'Out for Delivery'
             
         except Exception as e:
             logging.debug(f"Error extracting FedEx mobile data: {e}")

@@ -288,7 +288,7 @@ class CarrierDetector:
         sorted_carriers = sorted(
             self.carrier_patterns.items(),
             key=lambda x: x[1].get('priority', 3),  # Default priority is 3 (lower)
-            reverse=True  # Higher priority first
+            reverse=False  # Lower priority numbers come first (1 = highest priority)
         )
         
         # Try to match against known patterns in priority order
