@@ -172,6 +172,9 @@ class LTLTrackingClient:
                 # Additional validation to ensure the value is actually useful
                 value_str = str(value).strip().lower()
                 if value_str and value_str not in ['no data', 'not found', 'error', 'failed', 'unavailable', 'none', 'null']:
+                    # Filter out Peninsula Truck Lines contact information and generic website content
+                    if self._is_generic_website_content(value_str):
+                        continue
                     return True
         
         # Don't consider generic fallback fields as useful unless they contain specific tracking terms
@@ -183,7 +186,56 @@ class LTLTrackingClient:
             if value:
                 value_str = str(value).strip().lower()
                 if any(keyword in value_str for keyword in tracking_keywords):
-                    return True
+                    # Still filter out generic content even if it contains tracking keywords
+                    if not self._is_generic_website_content(value_str):
+                        return True
+        
+        return False
+    
+    def _is_generic_website_content(self, text: str) -> bool:
+        """
+        Check if text contains generic website content that should not be considered tracking data.
+        
+        Args:
+            text: Text to check
+            
+        Returns:
+            True if text is generic website content, False otherwise
+        """
+        text_lower = text.lower()
+        
+        # Peninsula Truck Lines specific filters
+        peninsula_filters = [
+            'general contact', 'phone:', 'fax:', 'corporate address', 'mailing address',
+            'federal way, wa', 'auburn, wa', 'peninsula truck lines, inc',
+            'po box 587', 'copyright', 'all rights reserved', 'privacy and cookies',
+            'terms of service', 'machine readable files', 'facebook', 'twitter',
+            'linkedin', 'instagram', 'youtube', 'join our community'
+        ]
+        
+        # Generic website content filters
+        generic_filters = [
+            'contact us', 'about us', 'privacy policy', 'terms of use',
+            'copyright', 'all rights reserved', 'footer', 'navigation',
+            'menu', 'login', 'register', 'subscribe', 'newsletter',
+            'social media', 'follow us', 'phone number', 'email address',
+            'corporate headquarters', 'mailing address', 'po box'
+        ]
+        
+        all_filters = peninsula_filters + generic_filters
+        
+        # Check if text contains any of the filter terms
+        for filter_term in all_filters:
+            if filter_term in text_lower:
+                return True
+        
+        # Check if text is mostly contact information (contains multiple contact indicators)
+        contact_indicators = ['phone', 'fax', 'address', 'email', 'contact', 'zip', 'state']
+        contact_count = sum(1 for indicator in contact_indicators if indicator in text_lower)
+        
+        # If text contains 3+ contact indicators, it's likely contact info
+        if contact_count >= 3:
+            return True
         
         return False
     

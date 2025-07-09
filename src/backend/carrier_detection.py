@@ -53,12 +53,13 @@ class CarrierDetector:
                     r'^([0123]\d{8})$',  # 9-digit starting with 0,1,2,3: 933784722
                     r'^(\d{3}-\d{6})$',  # 9-digit with dash: 823-691187
                 ],
-                'tracking_url': 'https://www.rlcarriers.com/tracking?pro={pro_number}',
+                'tracking_url': 'https://www2.rlcarriers.com/freight/shipping/shipment-tracing?pro={pro_number}&docType=PRO&source=web',
                 'login_required': False,
                 'css_selectors': {
-                    'status': '.tracking-status, .shipment-status, .status-text',
-                    'location': '.current-location, .location-text, .shipment-location',
-                    'event': '.latest-update, .latest-event, .tracking-event'
+                    'status': '.status-text, .shipment-status, .tracking-status, [class*="status"]',
+                    'location': '.location-text, .current-location, .shipment-location, [class*="location"]',
+                    'event': '.event-text, .latest-event, .tracking-event, [class*="event"]',
+                    'timestamp': '.date-text, .timestamp, .event-date, [class*="date"]'
                 },
                 'priority': 1  # High priority carrier
             },
