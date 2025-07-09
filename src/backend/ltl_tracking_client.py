@@ -267,6 +267,9 @@ class LTLTrackingClient:
         # Check if this is R+L Carriers and needs special handling
         is_rl_carriers = 'r+l' in carrier_info.get('name', '').lower() or 'rl' in carrier_info.get('name', '').lower()
         
+        # Check if this is Estes Express and needs special handling
+        is_estes = 'estes' in carrier_info.get('name', '').lower()
+        
         # Check if this is an SPA application (like Peninsula)
         is_spa = carrier_info.get('spa_app', False)
         
@@ -302,6 +305,18 @@ class LTLTrackingClient:
                         if tracking_data:
                             return tracking_data
                     # If R+L-specific method fails, continue with general method
+                
+                # Special handling for Estes Express
+                if is_estes:
+                    # Extract PRO number from URL
+                    import re
+                    pro_match = re.search(r'searchValue=([^&]+)', tracking_url)
+                    if pro_match:
+                        pro_number = pro_match.group(1)
+                        tracking_data = self._scrape_estes_tracking(tracking_url, pro_number)
+                        if tracking_data:
+                            return tracking_data
+                    # If Estes-specific method fails, continue with general method
                 
                 # Make the request with carrier-specific headers
                 headers = self._get_carrier_specific_headers(carrier_info)
@@ -519,6 +534,19 @@ class LTLTrackingClient:
                 'Sec-Fetch-Site': 'same-origin',
                 'Sec-Fetch-User': '?1',
                 'Cache-Control': 'no-cache'
+            }
+        elif 'estes' in carrier_name:
+            return {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.estesexpress.com/',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0'
             }
         
         # Default headers for other carriers
@@ -1277,6 +1305,241 @@ class LTLTrackingClient:
         except Exception as e:
             logging.debug(f"Error extracting R+L data: {e}")
         
+        return tracking_data if tracking_data else None
+    
+    def _scrape_estes_tracking(self, tracking_url: str, pro_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Enhanced Estes Express tracking with specific extraction patterns.
+        
+        Args:
+            tracking_url: Estes Express tracking URL
+            pro_number: PRO number to track
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        try:
+            # Estes Express specific headers
+            estes_headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.estesexpress.com/',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0'
+            }
+            
+            response = self.session.get(tracking_url, headers=estes_headers, timeout=self.timeout)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Extract Estes Express specific tracking data
+                tracking_data = self._extract_estes_data(soup)
+                if tracking_data:
+                    return tracking_data
+                
+                # Fallback to general extraction
+                return self._extract_tracking_data(soup, {
+                    'status': '.status-text, .shipment-status, .tracking-status, [class*="status"]',
+                    'location': '.location-text, .current-location, .shipment-location, [class*="location"]',
+                    'event': '.event-text, .latest-event, .tracking-event, [class*="event"]',
+                    'timestamp': '.date-text, .timestamp, .event-date, [class*="date"]'
+                })
+            
+        except Exception as e:
+            logging.debug(f"Estes Express tracking failed: {e}")
+        
+        return None
+    
+    def _extract_estes_data(self, soup: BeautifulSoup) -> Optional[Dict[str, Any]]:
+        """
+        Extract tracking data from Estes Express page.
+        
+        Args:
+            soup: BeautifulSoup parsed HTML
+            
+        Returns:
+            Dict containing Estes Express tracking data
+        """
+        tracking_data = {}
+        
+        try:
+            # Estes Express uses dropdowns and specific class structures
+            # Look for status information in various forms
+            status_selectors = [
+                '.status', '.shipment-status', '.tracking-status', '.delivery-status',
+                '[class*="status"]', '[id*="status"]', '.pro-status',
+                'select[name*="status"]', 'select[id*="status"]',
+                '.status-dropdown', '.shipment-status-dropdown', '.tracking-status-dropdown'
+            ]
+            
+            for selector in status_selectors:
+                status_element = soup.select_one(selector)
+                if status_element:
+                    status_text = None
+                    # Handle select elements (dropdowns)
+                    if status_element.name == 'select':
+                        selected_option = status_element.select_one('option[selected]')
+                        if selected_option:
+                            status_text = selected_option.get_text().strip()
+                        elif status_element.get('value'):
+                            status_text = status_element['value']
+                    # Handle regular elements
+                    elif status_element.get_text().strip():
+                        status_text = self._clean_text(status_element.get_text())
+                     
+                    if status_text and len(status_text) > 2:
+                        tracking_data['status'] = status_text
+                        break
+             
+            # Look for location information
+            location_selectors = [
+                '.location', '.current-location', '.terminal-location', '.shipment-location',
+                '[class*="location"]', '[id*="location"]', '.city-state', '.terminal-city',
+                'select[name*="location"]', 'select[id*="location"]',
+                '.location-dropdown', '.current-location-dropdown', '.shipment-location-dropdown'
+            ]
+            
+            for selector in location_selectors:
+                location_element = soup.select_one(selector)
+                if location_element:
+                    location_text = None
+                    if location_element.name == 'select':
+                        selected_option = location_element.select_one('option[selected]')
+                        if selected_option:
+                            location_text = selected_option.get_text().strip()
+                        elif location_element.get('value'):
+                            location_text = location_element['value']
+                    elif location_element.get_text().strip():
+                        location_text = self._clean_text(location_element.get_text())
+                     
+                    if location_text and len(location_text) > 2:
+                        tracking_data['location'] = location_text
+                        break
+             
+            # Look for event information
+            event_selectors = [
+                '.event', '.latest-event', '.tracking-event', '.shipment-event',
+                '[class*="event"]', '[id*="event"]', '.activity', '.latest-activity',
+                'select[name*="event"]', 'select[id*="event"]',
+                '.event-dropdown', '.latest-event-dropdown', '.tracking-event-dropdown'
+            ]
+            
+            for selector in event_selectors:
+                event_element = soup.select_one(selector)
+                if event_element:
+                    event_text = None
+                    if event_element.name == 'select':
+                        selected_option = event_element.select_one('option[selected]')
+                        if selected_option:
+                            event_text = selected_option.get_text().strip()
+                        elif event_element.get('value'):
+                            event_text = event_element['value']
+                    elif event_element.get_text().strip():
+                        event_text = self._clean_text(event_element.get_text())
+                     
+                    if event_text and len(event_text) > 5:
+                        tracking_data['event'] = event_text
+                        break
+             
+            # Look for date/time information
+            date_selectors = [
+                '.date', '.timestamp', '.delivery-date', '.event-date',
+                '[class*="date"]', '[class*="time"]', '.delivered-date',
+                'select[name*="date"]', 'select[id*="date"]',
+                '.date-dropdown', '.timestamp-dropdown', '.delivery-date-dropdown'
+            ]
+            
+            for selector in date_selectors:
+                date_element = soup.select_one(selector)
+                if date_element:
+                    date_text = None
+                    if date_element.name == 'select':
+                        selected_option = date_element.select_one('option[selected]')
+                        if selected_option:
+                            date_text = selected_option.get_text().strip()
+                        elif date_element.get('value'):
+                            date_text = date_element['value']
+                    elif date_element.get_text().strip():
+                        date_text = self._clean_text(date_element.get_text())
+                     
+                    if date_text and len(date_text) > 5:
+                        tracking_data['timestamp'] = date_text
+                        break
+             
+            # Look for tracking information in tables
+            tables = soup.find_all('table')
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:
+                        header = self._clean_text(cells[0].get_text()).lower()
+                        value = self._clean_text(cells[1].get_text())
+                         
+                        if value and len(value) > 2:
+                            if any(keyword in header for keyword in ['status', 'delivery', 'condition']):
+                                tracking_data['status'] = value
+                            elif any(keyword in header for keyword in ['location', 'terminal', 'city']):
+                                tracking_data['location'] = value
+                            elif any(keyword in header for keyword in ['date', 'time', 'delivered']):
+                                tracking_data['timestamp'] = value
+                            elif any(keyword in header for keyword in ['event', 'activity', 'description']):
+                                tracking_data['event'] = value
+             
+            # Look for JavaScript-loaded content in script tags
+            script_tags = soup.find_all('script')
+            for script in script_tags:
+                script_content = script.get_text()
+                if 'tracking' in script_content.lower() or 'status' in script_content.lower():
+                    # Try to extract tracking data from JavaScript
+                    import re
+                    status_matches = re.findall(r'status["\']?\s*:\s*["\']([^"\']+)["\']', script_content, re.IGNORECASE)
+                    if status_matches and not tracking_data.get('status'):
+                        tracking_data['status'] = status_matches[0]
+                     
+                    location_matches = re.findall(r'location["\']?\s*:\s*["\']([^"\']+)["\']', script_content, re.IGNORECASE)
+                    if location_matches and not tracking_data.get('location'):
+                        tracking_data['location'] = location_matches[0]
+             
+            # Look for forms with tracking data
+            forms = soup.find_all('form')
+            for form in forms:
+                inputs = form.find_all('input')
+                for input_elem in inputs:
+                    input_name = input_elem.get('name', '').lower()
+                    input_value = input_elem.get('value', '')
+                    if input_value and len(input_value) > 2:
+                        if 'status' in input_name:
+                            tracking_data['status'] = input_value
+                        elif 'location' in input_name:
+                            tracking_data['location'] = input_value
+                        elif 'event' in input_name:
+                            tracking_data['event'] = input_value
+                        elif 'date' in input_name or 'time' in input_name:
+                            tracking_data['timestamp'] = input_value
+             
+            # Look for any text that contains "delivered" or other status indicators
+            if not tracking_data.get('status'):
+                all_text = soup.get_text().lower()
+                if 'delivered' in all_text:
+                    tracking_data['status'] = 'Delivered'
+                elif 'in transit' in all_text:
+                    tracking_data['status'] = 'In Transit'
+                elif 'picked up' in all_text:
+                    tracking_data['status'] = 'Picked Up'
+                elif 'at terminal' in all_text:
+                    tracking_data['status'] = 'At Terminal'
+                elif 'out for delivery' in all_text:
+                    tracking_data['status'] = 'Out for Delivery'
+             
+        except Exception as e:
+            logging.debug(f"Error extracting Estes Express data: {e}")
+         
         return tracking_data if tracking_data else None
     
     def _clean_text(self, text: str) -> str:
