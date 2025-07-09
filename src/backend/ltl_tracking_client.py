@@ -169,13 +169,20 @@ class LTLTrackingClient:
         for field in useful_fields:
             value = tracking_data.get(field)
             if value and value not in ['No status available', 'No location available', 'No timestamp available', 'N/A', '', None]:
-                return True
+                # Additional validation to ensure the value is actually useful
+                value_str = str(value).strip().lower()
+                if value_str and value_str not in ['no data', 'not found', 'error', 'failed', 'unavailable', 'none', 'null']:
+                    return True
         
-        # Check for any other non-empty fields that might indicate useful data
-        for key, value in tracking_data.items():
-            if key not in ['scraped_at'] and value and str(value).strip():
-                # Skip generic failure messages
-                if str(value).lower() not in ['no data', 'not found', 'error', 'failed', 'unavailable']:
+        # Don't consider generic fallback fields as useful unless they contain specific tracking terms
+        fallback_fields = ['table_data', 'div_data', 'meta_tracking', 'peninsula_data']
+        tracking_keywords = ['delivered', 'in transit', 'out for delivery', 'picked up', 'at terminal', 'departed', 'arrived']
+        
+        for field in fallback_fields:
+            value = tracking_data.get(field)
+            if value:
+                value_str = str(value).strip().lower()
+                if any(keyword in value_str for keyword in tracking_keywords):
                     return True
         
         return False
