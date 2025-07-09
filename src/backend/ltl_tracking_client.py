@@ -1258,8 +1258,8 @@ class LTLTrackingClient:
         tracking_data = {}
         
         try:
-            # R+L uses tables and specific class structures
-            # Look for status information
+            # Enhanced R+L extraction focusing on shipment history
+            # Look for the main status (Delivered, In Transit, etc.)
             status_selectors = [
                 '.status', '.shipment-status', '.tracking-status', 
                 '[class*="status"]', '[id*="status"]',
@@ -1275,42 +1275,68 @@ class LTLTrackingClient:
                         tracking_data['status'] = status_text
                         break
             
-            # Look for delivery/status information in tables
-            tables = soup.find_all('table')
-            for table in tables:
-                rows = table.find_all('tr')
-                for row in rows:
-                    cells = row.find_all(['td', 'th'])
-                    if len(cells) >= 2:
-                        header = self._clean_text(cells[0].get_text()).lower()
-                        value = self._clean_text(cells[1].get_text())
+            # Enhanced shipment history parsing
+            # Look for shipment history section - this is where R+L shows the detailed timeline
+            shipment_history = soup.find('h4', string='Shipment History')
+            if shipment_history:
+                # Find the list of events after the "Shipment History" header
+                history_container = shipment_history.find_next('ul') or shipment_history.find_next('div')
+                if history_container and hasattr(history_container, 'find_all'):
+                    # Extract all events from the history
+                    events = []
+                    event_items = history_container.find_all('li') or history_container.find_all('div')
+                    
+                    for item in event_items:
+                        if hasattr(item, 'get_text'):
+                            event_text = self._clean_text(item.get_text())
+                            if event_text and '|' in event_text:  # R+L format: "Event Date | Time"
+                                events.append(event_text)
+                    
+                    # Parse events to find the latest one
+                    if events:
+                        latest_event = events[-1]  # Last event is usually the most recent
                         
-                        if value and len(value) > 2:
-                            if any(keyword in header for keyword in ['status', 'delivery', 'condition']):
-                                tracking_data['status'] = value
-                            elif any(keyword in header for keyword in ['location', 'terminal', 'city']):
-                                tracking_data['location'] = value
-                            elif any(keyword in header for keyword in ['date', 'time', 'delivered']):
-                                tracking_data['timestamp'] = value
-                            elif any(keyword in header for keyword in ['event', 'activity', 'description']):
-                                tracking_data['event'] = value
+                        # Extract event type and timestamp from the latest event
+                        # Format: "Delivered 07/02/2025 | 10:31:00 AM"
+                        import re
+                        
+                        # Look for delivery event specifically
+                        delivered_match = re.search(r'Delivered\s+(\d{2}/\d{2}/\d{4})\s*\|\s*(\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM))', latest_event)
+                        if delivered_match:
+                            tracking_data['event'] = 'Delivered'
+                            tracking_data['timestamp'] = f"{delivered_match.group(1)} | {delivered_match.group(2)}"
+                            tracking_data['status'] = 'Delivered'
+                        else:
+                            # Look for any event with timestamp pattern
+                            timestamp_match = re.search(r'(\w+(?:\s+\w+)*)\s+(\d{2}/\d{2}/\d{4})\s*\|\s*(\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM))', latest_event)
+                            if timestamp_match:
+                                tracking_data['event'] = timestamp_match.group(1)
+                                tracking_data['timestamp'] = f"{timestamp_match.group(2)} | {timestamp_match.group(3)}"
+                        
+                        # If no specific pattern found, use the full latest event
+                        if not tracking_data.get('event'):
+                            tracking_data['event'] = latest_event
             
-            # Look for tracking history/events
-            event_selectors = [
-                '.tracking-event', '.shipment-event', '.event-row',
-                '[class*="event"]', '[class*="history"]',
-                '.tracking-history tr', '.event-history tr'
-            ]
-            
-            for selector in event_selectors:
-                events = soup.select(selector)
-                if events:
-                    # Get the most recent event
-                    latest_event = events[0]
-                    event_text = self._clean_text(latest_event.get_text())
-                    if event_text and len(event_text) > 5:
-                        tracking_data['event'] = event_text
-                        break
+            # Fallback: Look for delivery/status information in tables
+            if not tracking_data.get('event'):
+                tables = soup.find_all('table')
+                for table in tables:
+                    rows = table.find_all('tr')
+                    for row in rows:
+                        cells = row.find_all(['td', 'th'])
+                        if len(cells) >= 2:
+                            header = self._clean_text(cells[0].get_text()).lower()
+                            value = self._clean_text(cells[1].get_text())
+                            
+                            if value and len(value) > 2:
+                                if any(keyword in header for keyword in ['status', 'delivery', 'condition']):
+                                    tracking_data['status'] = value
+                                elif any(keyword in header for keyword in ['location', 'terminal', 'city']):
+                                    tracking_data['location'] = value
+                                elif any(keyword in header for keyword in ['date', 'time', 'delivered']):
+                                    tracking_data['timestamp'] = value
+                                elif any(keyword in header for keyword in ['event', 'activity', 'description']):
+                                    tracking_data['event'] = value
             
             # Look for location information
             location_selectors = [
@@ -1321,38 +1347,11 @@ class LTLTrackingClient:
             
             for selector in location_selectors:
                 location_element = soup.select_one(selector)
-                if location_element:
+                if location_element and hasattr(location_element, 'get_text'):
                     location_text = self._clean_text(location_element.get_text())
                     if location_text and len(location_text) > 2:
                         tracking_data['location'] = location_text
                         break
-            
-            # Look for date/time information
-            date_selectors = [
-                '.date', '.timestamp', '.delivery-date', '.event-date',
-                '[class*="date"]', '[class*="time"]'
-            ]
-            
-            for selector in date_selectors:
-                date_element = soup.select_one(selector)
-                if date_element:
-                    date_text = self._clean_text(date_element.get_text())
-                    if date_text and len(date_text) > 5:
-                        tracking_data['timestamp'] = date_text
-                        break
-            
-            # Special handling for R+L's specific page structure
-            # Look for div containers with tracking information
-            tracking_containers = soup.select('div[class*="track"], div[class*="shipment"], div[class*="pro"]')
-            for container in tracking_containers:
-                container_text = self._clean_text(container.get_text())
-                if container_text:
-                    # Look for status keywords in the container
-                    status_keywords = ['delivered', 'in transit', 'picked up', 'at terminal', 'out for delivery']
-                    for keyword in status_keywords:
-                        if keyword in container_text.lower():
-                            tracking_data['status'] = keyword.title()
-                            break
             
             # Look for any text that contains "delivered" or other status indicators
             if not tracking_data.get('status'):
