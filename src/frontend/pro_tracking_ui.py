@@ -250,41 +250,69 @@ def _render_processing_step():
     # Process PROs if not already done
     if 'pro_tracking_results' not in st.session_state:
         _process_pro_tracking(df, mappings)
-    else:
+    
+    # Always check if results are available after processing
+    if 'pro_tracking_results' in st.session_state:
         # Show completed results
         results = st.session_state.pro_tracking_results
         
-        # Summary
-        total = len(results)
-        successful = len([r for r in results if r['success']])
-        failed = total - successful
-        success_rate = (successful / total) * 100 if total > 0 else 0
+        # Debug info
+        st.write(f"**Debug:** Found {len(results)} results in session state")
         
-        st.success(f"✅ **Tracking Complete!**")
-        
-        # Statistics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total PROs", total)
-        with col2:
-            st.metric("Successful", successful)
-        with col3:
-            st.metric("Failed", failed)
-        with col4:
-            st.metric("Success Rate", f"{success_rate:.1f}%")
-        
-        # Navigation
-        col1, col2, col3 = st.columns([2, 1, 2])
-        
-        with col1:
-            if st.button("← Back", key="pro_tracking_back_to_mapping"):
-                st.session_state.pro_tracking_step = 2
-                st.rerun()
-        
-        with col3:
-            if st.button("📊 View Results", type="primary", key="pro_tracking_view_results"):
-                st.session_state.pro_tracking_step = 4
-                st.rerun()
+        if results:
+            # Summary
+            total = len(results)
+            successful = len([r for r in results if r.get('success', False)])
+            failed = total - successful
+            success_rate = (successful / total) * 100 if total > 0 else 0
+            
+            st.success(f"✅ **Tracking Complete!**")
+            
+            # Statistics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total PROs", total)
+            with col2:
+                st.metric("Successful", successful)
+            with col3:
+                st.metric("Failed", failed)
+            with col4:
+                st.metric("Success Rate", f"{success_rate:.1f}%")
+            
+            # Show a sample of results for debugging
+            st.subheader("🔍 Sample Results")
+            for i, result in enumerate(results[:3]):  # Show first 3 results
+                st.write(f"**PRO {i+1}:** {result}")
+            
+            # Navigation
+            col1, col2, col3 = st.columns([2, 1, 2])
+            
+            with col1:
+                if st.button("← Back", key="pro_tracking_back_to_mapping"):
+                    st.session_state.pro_tracking_step = 2
+                    st.rerun()
+            
+            with col3:
+                if st.button("📊 View Results", type="primary", key="pro_tracking_view_results"):
+                    st.session_state.pro_tracking_step = 4
+                    st.rerun()
+        else:
+            st.error("❌ No results found. The tracking may have failed.")
+            st.info("This could be due to:")
+            st.write("- Invalid PRO numbers")
+            st.write("- Carrier websites being unavailable")
+            st.write("- Network connectivity issues")
+            
+            # Navigation back
+            col1, col2, col3 = st.columns([2, 1, 2])
+            with col1:
+                if st.button("← Back", key="pro_tracking_back_to_mapping_error"):
+                    st.session_state.pro_tracking_step = 2
+                    st.rerun()
+    else:
+        st.info("Processing not complete yet. Please wait...")
+        if st.button("🔄 Refresh"):
+            st.rerun()
 
 
 def _render_results_step():
@@ -455,6 +483,10 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     pro_numbers = df[pro_column].dropna().astype(str).tolist()
     carriers = df[carrier_column].dropna().astype(str).tolist() if carrier_column else []
     
+    # Debug info
+    st.write(f"**Debug:** Processing {len(pro_numbers)} PRO numbers")
+    st.write(f"**Debug:** Processing options - delay: {delay}s, retries: {max_retries}")
+    
     # Ensure carriers list matches PRO numbers length
     if carrier_column and len(carriers) < len(pro_numbers):
         # Pad with None values
@@ -463,10 +495,28 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         carriers = [None] * len(pro_numbers)
     
     # Initialize tracking client
-    tracking_client = LTLTrackingClient(
-        delay_between_requests=delay,
-        max_retries=max_retries
-    )
+    try:
+        tracking_client = LTLTrackingClient(
+            delay_between_requests=delay,
+            max_retries=max_retries
+        )
+        st.write("**Debug:** Tracking client initialized successfully")
+    except Exception as e:
+        st.error(f"❌ Failed to initialize tracking client: {str(e)}")
+        # Create failed results for all PROs
+        results = []
+        for pro_number in pro_numbers:
+            results.append({
+                'pro_number': pro_number,
+                'carrier': 'Unknown',
+                'status': 'Initialization failed',
+                'location': 'N/A',
+                'timestamp': 'N/A',
+                'success': False,
+                'error_message': f"Tracking client initialization failed: {str(e)}"
+            })
+        st.session_state.pro_tracking_results = results
+        return
     
     # Progress tracking
     progress_bar = st.progress(0)
@@ -488,7 +538,7 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                 # Create result record
                 result = {
                     'pro_number': pro_number,
-                    'carrier': tracking_result.carrier_name,
+                    'carrier': tracking_result.carrier_name or 'Unknown',
                     'status': tracking_result.tracking_status or 'No status available',
                     'location': tracking_result.tracking_location or 'No location available',
                     'timestamp': tracking_result.tracking_timestamp or 'No timestamp available',
@@ -507,6 +557,7 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                     'success': False,
                     'error_message': str(e)
                 }
+                st.write(f"**Debug:** Error tracking PRO {pro_number}: {str(e)}")
             
             results.append(result)
             
@@ -520,12 +571,21 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         
         # Store results
         st.session_state.pro_tracking_results = results
+        st.write(f"**Debug:** Stored {len(results)} results in session state")
         
     except Exception as e:
-        st.error(f"Error during tracking: {str(e)}")
+        st.error(f"❌ Error during tracking: {str(e)}")
+        # Store partial results if any
+        if results:
+            st.session_state.pro_tracking_results = results
+            st.write(f"**Debug:** Stored {len(results)} partial results due to error")
     
     finally:
-        tracking_client.close()
+        try:
+            tracking_client.close()
+            st.write("**Debug:** Tracking client closed successfully")
+        except:
+            pass
 
 
 
