@@ -59,14 +59,22 @@ class LTLTrackingClient:
         self.timeout = timeout
         self.session = requests.Session()
         
-        # Set common headers to avoid being blocked
+        # Set enhanced headers to avoid being blocked
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'sec-ch-ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"',
+            'Cache-Control': 'max-age=0'
         })
     
     def track_pro_number(self, pro_number: str) -> TrackingResult:
@@ -250,13 +258,24 @@ class LTLTrackingClient:
         Returns:
             Dict containing tracking data or None if failed
         """
+        # Check if this is FedEx and needs special handling
+        is_fedex = 'fedex' in carrier_info.get('name', '').lower()
+        
         # Check if this is an SPA application (like Peninsula)
         is_spa = carrier_info.get('spa_app', False)
         
         for attempt in range(self.max_retries):
             try:
-                # Make the request
-                response = self.session.get(tracking_url, timeout=self.timeout)
+                # Special handling for FedEx
+                if is_fedex:
+                    tracking_data = self._scrape_fedex_tracking(tracking_url, carrier_info)
+                    if tracking_data:
+                        return tracking_data
+                    # If FedEx-specific method fails, continue with general method
+                
+                # Make the request with carrier-specific headers
+                headers = self._get_carrier_specific_headers(carrier_info)
+                response = self.session.get(tracking_url, timeout=self.timeout, headers=headers)
                 response.raise_for_status()
                 
                 # For SPA applications, we may need to wait for JavaScript to load
@@ -290,7 +309,178 @@ class LTLTrackingClient:
                 break
         
         return None
-
+    
+    def _scrape_fedex_tracking(self, tracking_url: str, carrier_info: Dict) -> Optional[Dict[str, Any]]:
+        """
+        Enhanced FedEx tracking with multiple fallback methods.
+        
+        Args:
+            tracking_url: FedEx tracking URL
+            carrier_info: Carrier information
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        try:
+            # Extract PRO number from URL
+            import re
+            pro_match = re.search(r'trknbr=([^&]+)', tracking_url)
+            if not pro_match:
+                return None
+            
+            pro_number = pro_match.group(1)
+            
+            # Method 1: Try mobile FedEx tracking (less protected)
+            mobile_url = f"https://m.fedex.com/track/{pro_number}"
+            mobile_headers = {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.fedex.com/',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
+            
+            response = self.session.get(mobile_url, headers=mobile_headers, timeout=self.timeout)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                tracking_data = self._extract_fedex_mobile_data(soup)
+                if tracking_data:
+                    return tracking_data
+            
+            # Method 2: Try alternative FedEx tracking endpoint
+            alt_url = f"https://www.fedex.com/apps/fedextrack/?action=track&trackingnumber={pro_number}&cntry_code=us&locale=en_US"
+            alt_headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.fedex.com/en-us/tracking.html',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+            
+            response = self.session.get(alt_url, headers=alt_headers, timeout=self.timeout)
+            if response.status_code == 200:
+                try:
+                    json_data = response.json()
+                    tracking_data = self._extract_fedex_json_data(json_data)
+                    if tracking_data:
+                        return tracking_data
+                except:
+                    pass
+            
+            # Method 3: Try original URL with session warming
+            self._warm_fedex_session()
+            response = self.session.get(tracking_url, timeout=self.timeout)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                tracking_data = self._extract_tracking_data(soup, carrier_info.get('css_selectors', {}))
+                if tracking_data:
+                    return tracking_data
+            
+        except Exception as e:
+            logging.debug(f"FedEx tracking failed: {e}")
+        
+        return None
+    
+    def _warm_fedex_session(self):
+        """Warm up the session by visiting FedEx homepage first"""
+        try:
+            self.session.get('https://www.fedex.com/', timeout=10)
+            time.sleep(1)
+        except:
+            pass
+    
+    def _extract_fedex_mobile_data(self, soup: BeautifulSoup) -> Optional[Dict[str, Any]]:
+        """Extract tracking data from FedEx mobile page"""
+        tracking_data = {}
+        
+        try:
+            # Look for mobile-specific elements
+            status_element = soup.select_one('.tracking-status, .shipment-status, [class*="status"]')
+            if status_element:
+                tracking_data['status'] = self._clean_text(status_element.get_text())
+            
+            location_element = soup.select_one('.location, .current-location, [class*="location"]')
+            if location_element:
+                tracking_data['location'] = self._clean_text(location_element.get_text())
+            
+            # Look for tracking events
+            event_elements = soup.select('.tracking-event, .scan-event, [class*="event"]')
+            if event_elements:
+                latest_event = event_elements[0]
+                tracking_data['event'] = self._clean_text(latest_event.get_text())
+            
+        except Exception as e:
+            logging.debug(f"Error extracting FedEx mobile data: {e}")
+        
+        return tracking_data if tracking_data else None
+    
+    def _extract_fedex_json_data(self, json_data: Dict) -> Optional[Dict[str, Any]]:
+        """Extract tracking data from FedEx JSON response"""
+        tracking_data = {}
+        
+        try:
+            # Navigate through typical FedEx JSON structure
+            if 'TrackPackagesResponse' in json_data:
+                packages = json_data['TrackPackagesResponse'].get('packageList', [])
+                if packages:
+                    package = packages[0]
+                    
+                    # Extract status
+                    if 'keyStatus' in package:
+                        tracking_data['status'] = package['keyStatus']
+                    
+                    # Extract location from scan events
+                    scan_events = package.get('scanEventList', [])
+                    if scan_events:
+                        latest_event = scan_events[0]
+                        if 'scanLocation' in latest_event:
+                            location_info = latest_event['scanLocation']
+                            location_parts = []
+                            if 'city' in location_info:
+                                location_parts.append(location_info['city'])
+                            if 'stateOrProvinceCode' in location_info:
+                                location_parts.append(location_info['stateOrProvinceCode'])
+                            if location_parts:
+                                tracking_data['location'] = ', '.join(location_parts)
+                        
+                        if 'status' in latest_event:
+                            tracking_data['event'] = latest_event['status']
+                        
+                        if 'date' in latest_event:
+                            tracking_data['timestamp'] = latest_event['date']
+            
+        except Exception as e:
+            logging.debug(f"Error extracting FedEx JSON data: {e}")
+        
+        return tracking_data if tracking_data else None
+    
+    def _get_carrier_specific_headers(self, carrier_info: Dict) -> Dict[str, str]:
+        """Get carrier-specific headers"""
+        carrier_name = carrier_info.get('name', '').lower()
+        
+        if 'fedex' in carrier_name:
+            return {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.fedex.com/',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin'
+            }
+        elif 'rl' in carrier_name or 'r+l' in carrier_name:
+            return {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www2.rlcarriers.com/'
+            }
+        
+        # Default headers for other carriers
+        return {}
+    
     def _extract_spa_data(self, html_content: str, carrier_info: Dict) -> Optional[Dict[str, Any]]:
         """
         Extract data from Single Page Applications by parsing JavaScript.
