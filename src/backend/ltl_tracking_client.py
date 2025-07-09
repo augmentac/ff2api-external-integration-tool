@@ -170,6 +170,10 @@ class LTLTrackingClient:
         """
         if not tracking_data:
             return False
+        
+        # Check for JavaScript requirement (this is useful information)
+        if tracking_data.get('requires_javascript'):
+            return True
             
         # Check if we have any meaningful tracking information
         useful_fields = ['status', 'location', 'event', 'timestamp']
@@ -259,16 +263,16 @@ class LTLTrackingClient:
             Dict containing tracking data or None if failed
         """
         # Check if this is FedEx and needs special handling
-        is_fedex = 'fedex' in carrier_info.get('name', '').lower()
+        is_fedex = 'fedex' in carrier_info.get('carrier_name', '').lower()
         
         # Check if this is Peninsula and needs special SPA handling
-        is_peninsula = 'peninsula' in carrier_info.get('name', '').lower()
+        is_peninsula = 'peninsula' in carrier_info.get('carrier_name', '').lower()
         
         # Check if this is R+L Carriers and needs special handling
-        is_rl_carriers = 'r+l' in carrier_info.get('name', '').lower() or 'rl' in carrier_info.get('name', '').lower()
+        is_rl_carriers = 'r+l' in carrier_info.get('carrier_name', '').lower() or 'rl' in carrier_info.get('carrier_name', '').lower()
         
         # Check if this is Estes Express and needs special handling
-        is_estes = 'estes' in carrier_info.get('name', '').lower()
+        is_estes = 'estes' in carrier_info.get('carrier_name', '').lower()
         
         # Check if this is an SPA application (like Peninsula)
         is_spa = carrier_info.get('spa_app', False)
@@ -503,7 +507,7 @@ class LTLTrackingClient:
     
     def _get_carrier_specific_headers(self, carrier_info: Dict) -> Dict[str, str]:
         """Get carrier-specific headers"""
-        carrier_name = carrier_info.get('name', '').lower()
+        carrier_name = carrier_info.get('carrier_name', '').lower()
         
         if 'fedex' in carrier_name:
             return {
@@ -610,7 +614,7 @@ class LTLTrackingClient:
                     break
             
             # Peninsula-specific: Look for API endpoints or data
-            if 'peninsula' in carrier_info.get('name', '').lower():
+            if 'peninsula' in carrier_info.get('carrier_name', '').lower():
                 peninsula_patterns = [
                     r'pro.*?(\d{9})',
                     r'tracking.*?status.*?"([^"]+)"',
@@ -1309,7 +1313,7 @@ class LTLTrackingClient:
     
     def _scrape_estes_tracking(self, tracking_url: str, pro_number: str) -> Optional[Dict[str, Any]]:
         """
-        Enhanced Estes Express tracking with specific extraction patterns.
+        Enhanced Estes Express tracking with JavaScript detection and alternative approaches.
         
         Args:
             tracking_url: Estes Express tracking URL
@@ -1325,7 +1329,7 @@ class LTLTrackingClient:
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
-                'Referer': 'https://www.estesexpress.com/',
+                'Referer': 'https://www.estes-express.com/',
                 'Sec-Fetch-Dest': 'document',
                 'Sec-Fetch-Mode': 'navigate',
                 'Sec-Fetch-Site': 'same-origin',
@@ -1333,25 +1337,92 @@ class LTLTrackingClient:
                 'Cache-Control': 'max-age=0'
             }
             
+            logging.info(f"Attempting Estes tracking for PRO {pro_number} at URL: {tracking_url}")
+            
             response = self.session.get(tracking_url, headers=estes_headers, timeout=self.timeout)
+            logging.info(f"Estes response status: {response.status_code}")
+            
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
+                page_text = soup.get_text()
+                
+                # Check if this is a JavaScript-only page
+                if 'Please enable JavaScript' in page_text:
+                    logging.warning(f"Estes tracking requires JavaScript for PRO {pro_number}")
+                    # Return a special tracking result indicating JavaScript requirement
+                    return {
+                        'status': 'JavaScript Required',
+                        'location': 'N/A',
+                        'event': 'Estes Express tracking requires JavaScript execution',
+                        'timestamp': 'N/A',
+                        'requires_javascript': True,
+                        'tracking_url': tracking_url
+                    }
+                
+                # Log page content for debugging (first 500 chars)
+                logging.info(f"Estes page content preview: {page_text[:500]}")
                 
                 # Extract Estes Express specific tracking data
                 tracking_data = self._extract_estes_data(soup)
                 if tracking_data:
+                    logging.info(f"Estes tracking data extracted: {tracking_data}")
                     return tracking_data
                 
+                # Try alternative Estes URL formats
+                alt_tracking_data = self._try_alternative_estes_urls(pro_number)
+                if alt_tracking_data:
+                    return alt_tracking_data
+                
                 # Fallback to general extraction
-                return self._extract_tracking_data(soup, {
+                fallback_data = self._extract_tracking_data(soup, {
                     'status': '.status-text, .shipment-status, .tracking-status, [class*="status"]',
                     'location': '.location-text, .current-location, .shipment-location, [class*="location"]',
                     'event': '.event-text, .latest-event, .tracking-event, [class*="event"]',
                     'timestamp': '.date-text, .timestamp, .event-date, [class*="date"]'
                 })
+                
+                if fallback_data:
+                    logging.info(f"Estes fallback data extracted: {fallback_data}")
+                    return fallback_data
+            else:
+                logging.warning(f"Estes tracking failed with status code: {response.status_code}")
             
         except Exception as e:
-            logging.debug(f"Estes Express tracking failed: {e}")
+            logging.error(f"Estes Express tracking failed for PRO {pro_number}: {e}")
+        
+        return None
+     
+    def _try_alternative_estes_urls(self, pro_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Try alternative Estes tracking URLs.
+        
+        Args:
+            pro_number: PRO number to track
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        alternative_urls = [
+            f'https://www.estes-express.com/myestes/shipment-tracking/?searchValue={pro_number}',
+            f'https://www.estes-express.com/tracking?pro={pro_number}',
+            f'https://www.estes-express.com/track?searchValue={pro_number}',
+            f'https://www.estes-express.com/myestes/tracking/shipment/{pro_number}',
+        ]
+        
+        for url in alternative_urls:
+            try:
+                logging.info(f"Trying alternative Estes URL: {url}")
+                response = self.session.get(url, timeout=self.timeout)
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    tracking_data = self._extract_estes_data(soup)
+                    if tracking_data:
+                        logging.info(f"Alternative Estes URL successful: {url}")
+                        return tracking_data
+            except Exception as e:
+                logging.debug(f"Alternative Estes URL failed {url}: {e}")
+                continue
         
         return None
     
