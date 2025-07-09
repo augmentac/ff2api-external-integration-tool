@@ -102,7 +102,8 @@ class LTLTrackingClient:
             # Scrape tracking information
             tracking_data = self._scrape_tracking_page(tracking_url, carrier_info)
             
-            if tracking_data:
+            # Check if we actually got useful tracking data
+            if tracking_data and self._has_useful_tracking_data(tracking_data):
                 result.tracking_status = tracking_data.get('status')
                 result.tracking_location = tracking_data.get('location')
                 result.tracking_event = tracking_data.get('event')
@@ -148,6 +149,36 @@ class LTLTrackingClient:
                 ))
         
         return results
+    
+    def _has_useful_tracking_data(self, tracking_data: Dict[str, Any]) -> bool:
+        """
+        Check if tracking data contains useful information.
+        
+        Args:
+            tracking_data: Dictionary containing tracking data
+            
+        Returns:
+            True if tracking data contains useful information, False otherwise
+        """
+        if not tracking_data:
+            return False
+            
+        # Check if we have any meaningful tracking information
+        useful_fields = ['status', 'location', 'event', 'timestamp']
+        
+        for field in useful_fields:
+            value = tracking_data.get(field)
+            if value and value not in ['No status available', 'No location available', 'No timestamp available', 'N/A', '', None]:
+                return True
+        
+        # Check for any other non-empty fields that might indicate useful data
+        for key, value in tracking_data.items():
+            if key not in ['scraped_at'] and value and str(value).strip():
+                # Skip generic failure messages
+                if str(value).lower() not in ['no data', 'not found', 'error', 'failed', 'unavailable']:
+                    return True
+        
+        return False
     
     def _scrape_tracking_page(self, tracking_url: str, carrier_info: Dict) -> Optional[Dict[str, Any]]:
         """

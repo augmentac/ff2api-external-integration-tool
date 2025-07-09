@@ -106,6 +106,21 @@ class CarrierDetector:
                 'priority': 1,  # High priority carrier
                 'spa_app': True  # Single Page Application - requires special handling
             },
+            'averitt_express': {
+                'name': 'Averitt Express',
+                'patterns': [
+                    r'^(I\d{9})$',       # I-prefix 9-digit format: I010185804
+                    r'^(I\d{3}-\d{6})$', # I-prefix with dash: I010-185804
+                ],
+                'tracking_url': 'https://www.averittexpress.com/tracking?pro={pro_number}',
+                'login_required': False,
+                'css_selectors': {
+                    'status': '.tracking-status, .shipment-status, .status-text',
+                    'location': '.current-location, .location-text, .shipment-location',
+                    'event': '.latest-event, .tracking-event, .shipment-event'
+                },
+                'priority': 1  # High priority carrier
+            },
             # Legacy carriers (lower priority)
             'old_dominion': {
                 'name': 'Old Dominion Freight',
@@ -274,7 +289,7 @@ class CarrierDetector:
             'css_selectors': {}
         }
     
-    def _clean_pro_number(self, pro_number: str) -> str:
+    def _clean_pro_number(self, pro_number: Optional[str]) -> str:
         """
         Clean and normalize PRO number format.
         
@@ -327,7 +342,7 @@ class CarrierDetector:
             })
         return carriers
     
-    def validate_pro_number(self, pro_number: Optional[str], carrier_code: str = None) -> Tuple[bool, str]:
+    def validate_pro_number(self, pro_number: Optional[str], carrier_code: Optional[str] = None) -> Tuple[bool, str]:
         """
         Validate PRO number format.
         
@@ -360,7 +375,7 @@ class CarrierDetector:
             return False, f"PRO number format invalid for {carrier_info['name']}"
         
         # Otherwise, validate against any known pattern
-        for carrier_code, carrier_info in self.carrier_patterns.items():
+        for carrier_key, carrier_info in self.carrier_patterns.items():
             for pattern in carrier_info['patterns']:
                 if re.match(pattern, cleaned_pro):
                     return True, ""
@@ -386,7 +401,7 @@ def detect_carrier_from_pro(pro_number: Optional[str]) -> Optional[Dict]:
     return carrier_detector.detect_carrier(pro_number)
 
 
-def get_tracking_url(pro_number: Optional[str], carrier_code: str = None) -> Optional[str]:
+def get_tracking_url(pro_number: Optional[str], carrier_code: Optional[str] = None) -> Optional[str]:
     """
     Get tracking URL for a PRO number.
     
@@ -405,7 +420,7 @@ def get_tracking_url(pro_number: Optional[str], carrier_code: str = None) -> Opt
         if carrier_info and 'tracking_url' in carrier_info and carrier_info['tracking_url']:
             tracking_url = carrier_info['tracking_url']
             if tracking_url:
-                return tracking_url.format(pro_number=pro_number)
+                return tracking_url.format(pro_number=pro_number or '')
     
     # Try to detect carrier
     detected = carrier_detector.detect_carrier(pro_number)
