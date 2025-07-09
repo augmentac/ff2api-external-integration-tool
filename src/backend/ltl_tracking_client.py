@@ -172,55 +172,62 @@ class LTLTrackingClient:
         
         return results
     
-    def _has_useful_tracking_data(self, tracking_data: Dict[str, Any]) -> bool:
+    def _has_useful_tracking_data(self, data: Dict[str, Any]) -> bool:
         """
-        Check if tracking data contains useful information.
+        Enhanced validation to check if tracking data contains useful information.
         
         Args:
-            tracking_data: Dictionary containing tracking data
+            data: Dictionary containing tracking data
             
         Returns:
-            True if tracking data contains useful information, False otherwise
+            bool: True if data contains useful tracking information
         """
-        if not tracking_data:
+        if not data:
             return False
         
-        # Check for JavaScript requirement (this is useful information)
-        if tracking_data.get('requires_javascript'):
-            return True
+        # Check for authentication-required responses (Peninsula)
+        if data.get('requires_authentication') or data.get('status') == 'Authentication Required':
+            return True  # This is a valid response indicating auth is needed
         
-        # Check for carrier fallback responses (these are useful)
-        if tracking_data.get('carrier_phone') or tracking_data.get('tracking_url'):
-            return True
-            
-        # Check if we have any meaningful tracking information
-        useful_fields = ['status', 'location', 'event', 'timestamp']
+        # Check if status field contains HTML (indicates failed scraping)
+        status = data.get('status', '')
+        if isinstance(status, str) and len(status) > 1000 and ('<!doctype html>' in status.lower() or '<html' in status.lower()):
+            return False
+        
+        # Check for meaningful tracking information
+        useful_fields = ['event', 'timestamp', 'location', 'status']
+        has_useful_data = False
         
         for field in useful_fields:
-            value = tracking_data.get(field)
-            if value and value not in ['No status available', 'No location available', 'No timestamp available', 'N/A', '', None]:
-                # Additional validation to ensure the value is actually useful
-                value_str = str(value).strip().lower()
-                if value_str and value_str not in ['no data', 'not found', 'error', 'failed', 'unavailable', 'none', 'null']:
-                    # Filter out Peninsula Truck Lines contact information and generic website content
-                    if self._is_generic_website_content(value_str):
-                        continue
-                    return True
+            value = data.get(field)
+            if value and isinstance(value, str):
+                # Skip generic fallback messages
+                if any(generic in value.lower() for generic in [
+                    'failed to scrape',
+                    'unable to extract',
+                    'no tracking data',
+                    'visit website',
+                    'contact carrier',
+                    'call for status'
+                ]):
+                    continue
+                
+                # Check for actual tracking content
+                if any(keyword in value.lower() for keyword in [
+                    'delivered', 'in transit', 'picked up', 'out for delivery',
+                    'at terminal', 'departed', 'arrived', 'shipment',
+                    'authentication required', 'requires login'
+                ]):
+                    has_useful_data = True
+                    break
+                
+                # Check for date/time patterns
+                import re
+                if re.search(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', value):
+                    has_useful_data = True
+                    break
         
-        # Don't consider generic fallback fields as useful unless they contain specific tracking terms
-        fallback_fields = ['table_data', 'div_data', 'meta_tracking', 'peninsula_data']
-        tracking_keywords = ['delivered', 'in transit', 'out for delivery', 'picked up', 'at terminal', 'departed', 'arrived']
-        
-        for field in fallback_fields:
-            value = tracking_data.get(field)
-            if value:
-                value_str = str(value).strip().lower()
-                if any(keyword in value_str for keyword in tracking_keywords):
-                    # Still filter out generic content even if it contains tracking keywords
-                    if not self._is_generic_website_content(value_str):
-                        return True
-        
-        return False
+        return has_useful_data
     
     def _is_generic_website_content(self, text: str) -> bool:
         """
@@ -970,7 +977,7 @@ class LTLTrackingClient:
     
     def _scrape_peninsula_tracking(self, tracking_url: str, pro_number: str) -> Optional[Dict[str, Any]]:
         """
-        Enhanced Peninsula tracking with API endpoint detection and extended wait times.
+        Enhanced Peninsula tracking with JavaScript rendering for SPA.
         
         Args:
             tracking_url: Peninsula tracking URL
@@ -985,7 +992,13 @@ class LTLTrackingClient:
             if api_data:
                 return api_data
             
-            # Method 2: Load the page and wait for SPA to initialize
+            # Method 2: Use Selenium to render JavaScript and extract data
+            if SELENIUM_AVAILABLE:
+                js_data = self._render_peninsula_with_javascript(tracking_url, pro_number)
+                if js_data:
+                    return js_data
+            
+            # Method 3: Load the page and wait for SPA to initialize (fallback)
             peninsula_headers = {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -1011,24 +1024,303 @@ class LTLTrackingClient:
                         return api_data
                 
                 # Fallback to regular extraction
-                return self._extract_peninsula_data(soup)
+                extracted_data = self._extract_peninsula_data(soup)
+                if extracted_data:
+                    return extracted_data
             
         except Exception as e:
             logging.debug(f"Peninsula tracking failed: {e}")
         
-        # Fallback: If all methods fail, provide informative response
+        # Enhanced fallback: Peninsula requires authentication, provide informative response
         return {
-            'status': 'Tracking Available',
+            'status': 'Authentication Required',
             'location': 'Peninsula Truck Lines Network',
-            'event': f'PRO {pro_number} is trackable on Peninsula website',
-            'timestamp': 'Visit website for real-time updates',
+            'event': 'Tracking Requires Login',
+            'timestamp': 'Real-time data requires account access',
             'carrier_phone': '1-800-832-5565',
-            'tracking_url': tracking_url
+            'tracking_url': tracking_url,
+            'requires_authentication': True,
+            'note': f'PRO {pro_number} tracking available at peninsulatruck.com with account login'
         }
+    
+    def _render_peninsula_with_javascript(self, tracking_url: str, pro_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Use Selenium to render Peninsula's JavaScript SPA and extract tracking data.
+        
+        Args:
+            tracking_url: Peninsula tracking URL
+            pro_number: PRO number to track
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        if not SELENIUM_AVAILABLE:
+            return None
+        
+        driver = None
+        try:
+            # Set up Chrome options for Peninsula
+            chrome_options = Options()
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--disable-logging')
+            chrome_options.add_argument('--disable-web-security')
+            chrome_options.add_argument('--allow-running-insecure-content')
+            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36')
+            
+            # Initialize driver
+            driver = webdriver.Chrome(options=chrome_options)
+            driver.set_page_load_timeout(30)
+            
+            # Navigate to Peninsula tracking page
+            driver.get(tracking_url)
+            
+            # Wait for the React app to load
+            WebDriverWait(driver, 10).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            
+            # Additional wait for React components to render
+            time.sleep(8)
+            
+            # Check for authentication errors in console logs
+            logs = driver.get_log('browser')
+            auth_errors = [log for log in logs if '403' in log['message'] or 'Forbidden' in log['message']]
+            
+            if auth_errors:
+                logging.debug(f"Peninsula authentication errors detected: {len(auth_errors)} errors")
+                return None
+            
+            # Try to find and interact with the tracking form if PRO number isn't in URL
+            try:
+                # Look for PRO number input field
+                pro_input = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="text"], input[placeholder*="PRO"], input[placeholder*="tracking"], input[name*="pro"]'))
+                )
+                pro_input.clear()
+                pro_input.send_keys(pro_number)
+                
+                # Look for submit button
+                submit_button = driver.find_element(By.CSS_SELECTOR, 'button[type="submit"], button:contains("Track"), button:contains("Search"), .btn-primary')
+                submit_button.click()
+                
+                # Wait for results to load
+                WebDriverWait(driver, 10).until(
+                    lambda d: len(d.find_elements(By.CSS_SELECTOR, '[class*="result"], [class*="tracking"], [class*="status"], [class*="delivery"]')) > 0
+                )
+                
+                # Additional wait for data to load
+                time.sleep(5)
+                
+            except TimeoutException:
+                # PRO number might already be in URL, continue with extraction
+                pass
+            
+            # Get the rendered HTML
+            html_content = driver.page_source
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Extract tracking data from rendered page
+            tracking_data = self._extract_peninsula_javascript_data(soup, pro_number)
+            
+            return tracking_data
+            
+        except Exception as e:
+            logging.debug(f"Peninsula JavaScript rendering failed: {e}")
+            return None
+        
+        finally:
+            if driver:
+                try:
+                    driver.quit()
+                except:
+                    pass
+    
+    def _extract_peninsula_javascript_data(self, soup: BeautifulSoup, pro_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Extract tracking data from Peninsula's JavaScript-rendered page.
+        
+        Args:
+            soup: BeautifulSoup parsed HTML from rendered page
+            pro_number: PRO number for validation
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        try:
+            # Peninsula-specific selectors for tracking data
+            tracking_data = {}
+            
+            # Look for delivery status and event information
+            status_selectors = [
+                '[class*="status"]',
+                '[class*="delivery"]',
+                '[class*="tracking-status"]',
+                '[class*="shipment-status"]',
+                '.status-text',
+                '.delivery-status',
+                '.tracking-result',
+                '[class*="track-result"]',
+                '[class*="shipment-detail"]'
+            ]
+            
+            for selector in status_selectors:
+                elements = soup.select(selector)
+                for element in elements:
+                    text = self._clean_text(element.get_text())
+                    if text and any(keyword in text.lower() for keyword in ['delivered', 'in transit', 'picked up', 'terminal', 'out for delivery']):
+                        # Extract event from status text
+                        if 'delivered' in text.lower():
+                            tracking_data['event'] = 'Delivered'
+                        elif 'in transit' in text.lower():
+                            tracking_data['event'] = 'In Transit'
+                        elif 'picked up' in text.lower():
+                            tracking_data['event'] = 'Picked Up'
+                        elif 'out for delivery' in text.lower():
+                            tracking_data['event'] = 'Out for Delivery'
+                        else:
+                            tracking_data['event'] = text
+                        break
+            
+            # Look for timestamp information with Peninsula's specific format
+            timestamp_selectors = [
+                '[class*="date"]',
+                '[class*="time"]',
+                '[class*="timestamp"]',
+                '.delivery-date',
+                '.status-date',
+                '.tracking-date',
+                '[class*="event-date"]',
+                '[class*="delivery-time"]'
+            ]
+            
+            for selector in timestamp_selectors:
+                elements = soup.select(selector)
+                for element in elements:
+                    text = self._clean_text(element.get_text())
+                    # Look for Peninsula's date/time patterns
+                    import re
+                    date_patterns = [
+                        r'\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}[ap]m',
+                        r'\d{2}/\d{2}/\d{4}\s+\d{1,2}:\d{2}[ap]m',
+                        r'\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}[ap]m',
+                        r'\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}[AP]M',
+                        r'\d{2}/\d{2}/\d{4}\s+\d{1,2}:\d{2}[AP]M'
+                    ]
+                    
+                    for pattern in date_patterns:
+                        matches = re.findall(pattern, text, re.IGNORECASE)
+                        if matches:
+                            tracking_data['timestamp'] = matches[0]
+                            break
+                    
+                    if 'timestamp' in tracking_data:
+                        break
+            
+            # Look for location information
+            location_selectors = [
+                '[class*="location"]',
+                '[class*="city"]',
+                '[class*="address"]',
+                '.delivery-location',
+                '.status-location',
+                '.tracking-location',
+                '[class*="terminal"]',
+                '[class*="destination"]'
+            ]
+            
+            for selector in location_selectors:
+                elements = soup.select(selector)
+                for element in elements:
+                    text = self._clean_text(element.get_text())
+                    # Look for city, state pattern
+                    import re
+                    location_patterns = [
+                        r'[A-Z][A-Z\s]+,\s*[A-Z]{2}(\s+[A-Z]{2})?',
+                        r'[A-Z][A-Z\s]+,\s*[A-Z]{2}',
+                        r'[A-Z\s]+,\s*[A-Z]{2}\s+US'
+                    ]
+                    
+                    for pattern in location_patterns:
+                        matches = re.findall(pattern, text)
+                        if matches:
+                            tracking_data['location'] = text.strip()
+                            break
+                    
+                    if 'location' in tracking_data:
+                        break
+            
+            # Look for table-based tracking data (common in Peninsula)
+            tables = soup.find_all('table')
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:
+                        # Look for date/time in first cell and status in second
+                        first_cell = self._clean_text(cells[0].get_text())
+                        second_cell = self._clean_text(cells[1].get_text())
+                        
+                        # Check if first cell contains date/time pattern
+                        import re
+                        if re.search(r'\d{2}/\d{2}/\d{4}', first_cell):
+                            if any(keyword in second_cell.lower() for keyword in ['delivered', 'in transit', 'picked up']):
+                                tracking_data['timestamp'] = first_cell
+                                tracking_data['event'] = second_cell
+                                
+                                # Look for location in third cell if available
+                                if len(cells) >= 3:
+                                    third_cell = self._clean_text(cells[2].get_text())
+                                    if re.search(r'[A-Z][A-Z\s]+,\s*[A-Z]{2}', third_cell):
+                                        tracking_data['location'] = third_cell
+                                break
+            
+            # Look for div-based tracking information
+            tracking_divs = soup.find_all('div')
+            for div in tracking_divs:
+                text = self._clean_text(div.get_text())
+                
+                # Look for combined date/time and status in single div
+                import re
+                combined_patterns = [
+                    r'(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}[ap]m)\s+(.*?)\s+([A-Z][A-Z\s]+,\s*[A-Z]{2})',
+                    r'(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2}[ap]m)\s+(.*?)\s+([A-Z][A-Z\s]+,\s*[A-Z]{2})'
+                ]
+                
+                for pattern in combined_patterns:
+                    matches = re.findall(pattern, text, re.IGNORECASE)
+                    if matches:
+                        if len(matches[0]) == 3:
+                            timestamp, event, location = matches[0]
+                            tracking_data['timestamp'] = timestamp.strip()
+                            tracking_data['event'] = event.strip()
+                            tracking_data['location'] = location.strip()
+                        elif len(matches[0]) == 4:
+                            date, time, event, location = matches[0]
+                            tracking_data['timestamp'] = f"{date} {time}".strip()
+                            tracking_data['event'] = event.strip()
+                            tracking_data['location'] = location.strip()
+                        break
+            
+            # Validate we have meaningful data
+            if tracking_data and any(key in tracking_data for key in ['event', 'timestamp', 'location']):
+                # Set status based on event
+                if 'event' in tracking_data:
+                    tracking_data['status'] = tracking_data['event']
+                
+                return tracking_data
+            
+        except Exception as e:
+            logging.debug(f"Error extracting Peninsula JavaScript data: {e}")
+        
+        return None
     
     def _try_peninsula_api(self, pro_number: str) -> Optional[Dict[str, Any]]:
         """
-        Try common Peninsula API endpoints.
+        Try to get tracking data from Peninsula API endpoints.
         
         Args:
             pro_number: PRO number to track
@@ -1036,40 +1328,49 @@ class LTLTrackingClient:
         Returns:
             Dict containing tracking data or None if failed
         """
-        # Common API endpoints for Peninsula
-        api_endpoints = [
-            f'https://www.peninsulatruck.com/api/tracking/{pro_number}',
-            f'https://www.peninsulatruck.com/api/track?pro={pro_number}',
-            f'https://www.peninsulatruck.com/_/api/tracking?pro_number={pro_number}',
-            f'https://www.peninsulatruck.com/_/api/track/{pro_number}',
-            f'https://api.peninsulatruck.com/tracking/{pro_number}',
-            f'https://api.peninsulatruck.com/track?pro={pro_number}'
-        ]
-        
-        api_headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': f'https://www.peninsulatruck.com/_/#/track/?pro_number={pro_number}',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-        
-        for endpoint in api_endpoints:
-            try:
-                response = self.session.get(endpoint, headers=api_headers, timeout=10)
-                if response.status_code == 200:
-                    try:
-                        json_data = response.json()
-                        tracking_data = self._parse_peninsula_api_response(json_data)
-                        if tracking_data:
-                            return tracking_data
-                    except:
-                        # Try to parse as text if JSON fails
-                        text_data = response.text
-                        if any(keyword in text_data.lower() for keyword in ['delivered', 'transit', 'picked up', 'terminal']):
-                            return {'status': text_data.strip()}
-            except:
-                continue
+        try:
+            # Peninsula API endpoints to try
+            api_endpoints = [
+                f"https://ptlprodapi.azurewebsites.net/api/tracking/{pro_number}",
+                f"https://ptlprodapi.azurewebsites.net/api/shipments/{pro_number}",
+                f"https://ptlprodapi.azurewebsites.net/api/track/{pro_number}",
+                f"https://www.peninsulatruck.com/api/tracking/{pro_number}",
+                f"https://www.peninsulatruck.com/wp-json/ptl/v1/tracking/{pro_number}"
+            ]
+            
+            peninsula_headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.peninsulatruck.com/',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+            
+            for endpoint in api_endpoints:
+                try:
+                    response = self.session.get(endpoint, headers=peninsula_headers, timeout=self.timeout)
+                    
+                    # Check if response is JSON (not HTML)
+                    if response.status_code == 200:
+                        content_type = response.headers.get('content-type', '').lower()
+                        if 'application/json' in content_type:
+                            data = response.json()
+                            if data and isinstance(data, dict):
+                                return data
+                        else:
+                            # If we get HTML, this endpoint doesn't work
+                            continue
+                    
+                    # 403 means authentication required - don't try other endpoints
+                    elif response.status_code == 403:
+                        logging.debug(f"Peninsula API authentication required: {endpoint}")
+                        break
+                        
+                except (requests.exceptions.RequestException, ValueError, KeyError):
+                    continue
+            
+        except Exception as e:
+            logging.debug(f"Peninsula API attempt failed: {e}")
         
         return None
     
