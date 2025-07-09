@@ -264,6 +264,9 @@ class LTLTrackingClient:
         # Check if this is Peninsula and needs special SPA handling
         is_peninsula = 'peninsula' in carrier_info.get('name', '').lower()
         
+        # Check if this is R+L Carriers and needs special handling
+        is_rl_carriers = 'r+l' in carrier_info.get('name', '').lower() or 'rl' in carrier_info.get('name', '').lower()
+        
         # Check if this is an SPA application (like Peninsula)
         is_spa = carrier_info.get('spa_app', False)
         
@@ -287,6 +290,18 @@ class LTLTrackingClient:
                         if tracking_data:
                             return tracking_data
                     # If Peninsula-specific method fails, continue with general method
+                
+                # Special handling for R+L Carriers
+                if is_rl_carriers:
+                    # Extract PRO number from URL
+                    import re
+                    pro_match = re.search(r'pro=([^&]+)', tracking_url)
+                    if pro_match:
+                        pro_number = pro_match.group(1)
+                        tracking_data = self._scrape_rl_tracking(tracking_url, pro_number)
+                        if tracking_data:
+                            return tracking_data
+                    # If R+L-specific method fails, continue with general method
                 
                 # Make the request with carrier-specific headers
                 headers = self._get_carrier_specific_headers(carrier_info)
@@ -1089,6 +1104,180 @@ class LTLTrackingClient:
             logging.debug(f"Error in generic fallback extraction: {e}")
         
         return tracking_data
+    
+    def _scrape_rl_tracking(self, tracking_url: str, pro_number: str) -> Optional[Dict[str, Any]]:
+        """
+        Enhanced R+L Carriers tracking with specific extraction patterns.
+        
+        Args:
+            tracking_url: R+L tracking URL
+            pro_number: PRO number to track
+            
+        Returns:
+            Dict containing tracking data or None if failed
+        """
+        try:
+            # R+L specific headers
+            rl_headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www2.rlcarriers.com/',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0'
+            }
+            
+            response = self.session.get(tracking_url, headers=rl_headers, timeout=self.timeout)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Extract R+L specific tracking data
+                tracking_data = self._extract_rl_data(soup)
+                if tracking_data:
+                    return tracking_data
+                
+                # Fallback to general extraction
+                return self._extract_tracking_data(soup, {
+                    'status': '.status-text, .shipment-status, .tracking-status, [class*="status"]',
+                    'location': '.location-text, .current-location, .shipment-location, [class*="location"]',
+                    'event': '.event-text, .latest-event, .tracking-event, [class*="event"]',
+                    'timestamp': '.date-text, .timestamp, .event-date, [class*="date"]'
+                })
+            
+        except Exception as e:
+            logging.debug(f"R+L tracking failed: {e}")
+        
+        return None
+    
+    def _extract_rl_data(self, soup: BeautifulSoup) -> Optional[Dict[str, Any]]:
+        """
+        Extract tracking data from R+L Carriers page.
+        
+        Args:
+            soup: BeautifulSoup parsed HTML
+            
+        Returns:
+            Dict containing R+L tracking data
+        """
+        tracking_data = {}
+        
+        try:
+            # R+L uses tables and specific class structures
+            # Look for status information
+            status_selectors = [
+                '.status', '.shipment-status', '.tracking-status', 
+                '[class*="status"]', '[id*="status"]',
+                'td[class*="status"]', 'span[class*="status"]',
+                '.delivery-status', '.pro-status'
+            ]
+            
+            for selector in status_selectors:
+                status_element = soup.select_one(selector)
+                if status_element:
+                    status_text = self._clean_text(status_element.get_text())
+                    if status_text and len(status_text) > 2:
+                        tracking_data['status'] = status_text
+                        break
+            
+            # Look for delivery/status information in tables
+            tables = soup.find_all('table')
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:
+                        header = self._clean_text(cells[0].get_text()).lower()
+                        value = self._clean_text(cells[1].get_text())
+                        
+                        if value and len(value) > 2:
+                            if any(keyword in header for keyword in ['status', 'delivery', 'condition']):
+                                tracking_data['status'] = value
+                            elif any(keyword in header for keyword in ['location', 'terminal', 'city']):
+                                tracking_data['location'] = value
+                            elif any(keyword in header for keyword in ['date', 'time', 'delivered']):
+                                tracking_data['timestamp'] = value
+                            elif any(keyword in header for keyword in ['event', 'activity', 'description']):
+                                tracking_data['event'] = value
+            
+            # Look for tracking history/events
+            event_selectors = [
+                '.tracking-event', '.shipment-event', '.event-row',
+                '[class*="event"]', '[class*="history"]',
+                '.tracking-history tr', '.event-history tr'
+            ]
+            
+            for selector in event_selectors:
+                events = soup.select(selector)
+                if events:
+                    # Get the most recent event
+                    latest_event = events[0]
+                    event_text = self._clean_text(latest_event.get_text())
+                    if event_text and len(event_text) > 5:
+                        tracking_data['event'] = event_text
+                        break
+            
+            # Look for location information
+            location_selectors = [
+                '.location', '.current-location', '.terminal-location',
+                '[class*="location"]', '[id*="location"]',
+                '.city-state', '.terminal-city'
+            ]
+            
+            for selector in location_selectors:
+                location_element = soup.select_one(selector)
+                if location_element:
+                    location_text = self._clean_text(location_element.get_text())
+                    if location_text and len(location_text) > 2:
+                        tracking_data['location'] = location_text
+                        break
+            
+            # Look for date/time information
+            date_selectors = [
+                '.date', '.timestamp', '.delivery-date', '.event-date',
+                '[class*="date"]', '[class*="time"]'
+            ]
+            
+            for selector in date_selectors:
+                date_element = soup.select_one(selector)
+                if date_element:
+                    date_text = self._clean_text(date_element.get_text())
+                    if date_text and len(date_text) > 5:
+                        tracking_data['timestamp'] = date_text
+                        break
+            
+            # Special handling for R+L's specific page structure
+            # Look for div containers with tracking information
+            tracking_containers = soup.select('div[class*="track"], div[class*="shipment"], div[class*="pro"]')
+            for container in tracking_containers:
+                container_text = self._clean_text(container.get_text())
+                if container_text:
+                    # Look for status keywords in the container
+                    status_keywords = ['delivered', 'in transit', 'picked up', 'at terminal', 'out for delivery']
+                    for keyword in status_keywords:
+                        if keyword in container_text.lower():
+                            tracking_data['status'] = keyword.title()
+                            break
+            
+            # Look for any text that contains "delivered" or other status indicators
+            if not tracking_data.get('status'):
+                all_text = soup.get_text().lower()
+                if 'delivered' in all_text:
+                    tracking_data['status'] = 'Delivered'
+                elif 'in transit' in all_text:
+                    tracking_data['status'] = 'In Transit'
+                elif 'picked up' in all_text:
+                    tracking_data['status'] = 'Picked Up'
+                elif 'at terminal' in all_text:
+                    tracking_data['status'] = 'At Terminal'
+            
+        except Exception as e:
+            logging.debug(f"Error extracting R+L data: {e}")
+        
+        return tracking_data if tracking_data else None
     
     def _clean_text(self, text: str) -> str:
         """
