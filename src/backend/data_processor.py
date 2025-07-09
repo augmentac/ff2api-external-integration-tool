@@ -438,12 +438,20 @@ class DataProcessor:
                 'priority': 1
             },
             
-                         # 🏢 customer.name
-             'customer.name': {
-                 'regex': r'(customer|shipper|client|business|company)[\s_]*(name)?',
-                 'aliases': ['customer name', 'shipper name', 'client', 'business', 'company'],
-                 'priority': 1
-             },
+                                     # 🏢 customer.name
+            'customer.name': {
+                'regex': r'(customer|shipper|client|business|company)[\s_]*(name)?',
+                'aliases': ['customer name', 'shipper name', 'client', 'business', 'company'],
+                'priority': 1
+            },
+            
+            # 🚛 PRO Number (for tracking integration)
+            'load.referenceNumbers.0.value': {
+                'regex': r'(pro|pronumber)[\s_]*(number|#|num)?',
+                'aliases': ['pro number', 'pro #', 'pro num', 'pronumber', 'tracking number', 'bill of lading'],
+                'value_patterns': [r'\d{3}-\d{7}', r'\d{10}', r'\d{3}\d{8}', r'\d{4}-\d{4}-\d{4}'],
+                'priority': 1
+            },
              
              # 📍 Delivery/Destination Address Fields
              'load.route.1.address.street1': {
@@ -1767,14 +1775,169 @@ class DataProcessor:
             return []
     
     def cleanup_learning_data(self, db_manager=None, days_to_keep: int = 90) -> Dict[str, Any]:
-        """Clean up old learning data"""
+        """Clean up old learning data to save space"""
         if not db_manager:
-            return {'success': False, 'error': 'No database manager provided'}
+            return {'cleaned_count': 0, 'error': 'Database manager not provided'}
         
         try:
-            db_manager.cleanup_old_learning_data(days_to_keep)
-            return {'success': True, 'message': f'Cleaned up learning data older than {days_to_keep} days'}
-            
+            cleaned_count = db_manager.cleanup_old_learning_data(days_to_keep)
+            return {
+                'cleaned_count': cleaned_count,
+                'days_kept': days_to_keep,
+                'status': 'success'
+            }
         except Exception as e:
             self.logger.error(f"Error cleaning up learning data: {e}")
-            return {'success': False, 'error': str(e)} 
+            return {'cleaned_count': 0, 'error': str(e)}
+
+    def identify_pro_numbers(self, df: pd.DataFrame, field_mappings: Dict[str, str]) -> List[Dict[str, Any]]:
+        """
+        Identify PRO numbers in the data for tracking integration.
+        
+        Args:
+            df: DataFrame containing the data
+            field_mappings: Field mappings from CSV to API
+            
+        Returns:
+            List of dictionaries containing PRO number information
+        """
+        from .carrier_detection import detect_carrier_from_pro
+        
+        pro_numbers = []
+        
+        # Look for PRO numbers in the mapped fields
+        pro_field_mappings = {
+            field: column for field, column in field_mappings.items() 
+            if 'referenceNumbers' in field and 'value' in field
+        }
+        
+        # If no explicit PRO field mapping, look for potential PRO number columns
+        if not pro_field_mappings:
+            pro_field_mappings = self._find_pro_number_columns(df)
+        
+        # Process each PRO number field
+        for field, column_name in pro_field_mappings.items():
+            if column_name in df.columns:
+                for index, row in df.iterrows():
+                    pro_value = row[column_name]
+                    
+                    # Skip empty values
+                    if pd.isna(pro_value) or not str(pro_value).strip():
+                        continue
+                    
+                    pro_number = str(pro_value).strip()
+                    
+                    # Validate PRO number format
+                    if self._is_valid_pro_number(pro_number):
+                        # Try to detect carrier
+                        carrier_info = detect_carrier_from_pro(pro_number)
+                        
+                        # Get load ID if available
+                        load_id = None
+                        if 'load.loadNumber' in field_mappings:
+                            load_column = field_mappings['load.loadNumber']
+                            if load_column in df.columns:
+                                load_id = str(row[load_column]) if pd.notna(row[load_column]) else None
+                        
+                        pro_info = {
+                            'pro_number': pro_number,
+                            'carrier_name': carrier_info.get('carrier_name', 'Unknown') if carrier_info else 'Unknown',
+                            'carrier_code': carrier_info.get('carrier_code', 'unknown') if carrier_info else 'unknown',
+                            'load_id': load_id,
+                            'row_index': index,
+                            'source_column': column_name,
+                            'tracking_url': carrier_info.get('tracking_url') if carrier_info else None
+                        }
+                        pro_numbers.append(pro_info)
+        
+        return pro_numbers
+    
+    def _find_pro_number_columns(self, df: pd.DataFrame) -> Dict[str, str]:
+        """
+        Find columns that likely contain PRO numbers.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary mapping field names to column names
+        """
+        pro_columns = {}
+        
+        # Keywords that indicate PRO number columns
+        pro_keywords = [
+            'pro', 'pronumber', 'tracking', 'bill of lading', 'bol', 'shipment number',
+            'reference number', 'tracking number', 'pro number', 'pro #'
+        ]
+        
+        for column in df.columns:
+            column_lower = column.lower()
+            
+            # Check if column name contains PRO keywords
+            if any(keyword in column_lower for keyword in pro_keywords):
+                # Check if column contains PRO-like values
+                if self._column_contains_pro_numbers(df[column]):
+                    pro_columns[f'load.referenceNumbers.0.value'] = column
+                    break  # Only take the first matching column
+        
+        return pro_columns
+    
+    def _column_contains_pro_numbers(self, column: pd.Series) -> bool:
+        """
+        Check if a column contains PRO number-like values.
+        
+        Args:
+            column: Pandas Series to check
+            
+        Returns:
+            True if column likely contains PRO numbers
+        """
+        # Sample a few non-null values
+        sample_values = column.dropna().head(10)
+        
+        if len(sample_values) == 0:
+            return False
+        
+        pro_pattern_matches = 0
+        
+        for value in sample_values:
+            if self._is_valid_pro_number(str(value)):
+                pro_pattern_matches += 1
+        
+        # If more than 30% of sampled values match PRO patterns, consider it a PRO column
+        return pro_pattern_matches / len(sample_values) > 0.3
+    
+    def _is_valid_pro_number(self, pro_number: str) -> bool:
+        """
+        Check if a string looks like a valid PRO number.
+        
+        Args:
+            pro_number: String to validate
+            
+        Returns:
+            True if it looks like a PRO number
+        """
+        if not pro_number or len(pro_number) < 5:
+            return False
+        
+        # Clean the PRO number
+        cleaned = pro_number.strip().upper()
+        
+        # Remove common prefixes
+        prefixes = ['PRO:', 'PRO#', 'PRO ', 'PRONUMBER:', 'PRONUMBER#']
+        for prefix in prefixes:
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix):].strip()
+                break
+        
+        # Common PRO number patterns
+        pro_patterns = [
+            r'^\d{3}-\d{7}$',      # 123-1234567
+            r'^\d{10}$',           # 1234567890
+            r'^\d{3}\d{8}$',       # 12345678901 (UPS format)
+            r'^\d{4}-\d{4}-\d{4}$', # 1234-5678-9012 (FedEx format)
+            r'^\d{4}\d{7}$',       # 12345678901 (alternate UPS)
+            r'^\d{12}$',           # 123456789012 (FedEx no dashes)
+        ]
+        
+        return any(re.match(pattern, cleaned) for pattern in pro_patterns)

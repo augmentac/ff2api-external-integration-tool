@@ -2035,7 +2035,7 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
     st.session_state.processing_in_progress = True
     
     # Initialize progress tracking
-    total_steps = 6
+    total_steps = 7
     current_step = 0
     
     # Create enhanced progress components
@@ -2202,8 +2202,57 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
         api_progress_bar.empty()
         api_status.empty()
         
-        # Step 6: Process and save results
-        update_progress("Saving results", 6, "Processing results and saving to database...")
+        # Step 6: Track PRO numbers (if applicable)
+        update_progress("Tracking PRO numbers", 6, "Fetching latest tracking information...")
+        
+        # Identify PRO numbers for tracking
+        pro_numbers = data_processor.identify_pro_numbers(df, field_mappings)
+        tracking_results = []
+        
+        if pro_numbers:
+            st.info(f"🚛 Found {len(pro_numbers)} PRO numbers to track")
+            
+            # Import tracking client
+            from src.backend.ltl_tracking_client import LTLTrackingClient
+            
+            # Create tracking client
+            tracking_client = LTLTrackingClient(delay_between_requests=1, max_retries=2)
+            
+            # Track PRO numbers with progress
+            tracking_progress = st.progress(0)
+            tracking_status = st.empty()
+            
+            try:
+                for i, pro_info in enumerate(pro_numbers):
+                    # Update progress
+                    tracking_progress.progress(int((i / len(pro_numbers)) * 100))
+                    tracking_status.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_info['pro_number']}")
+                    
+                    # Track the PRO number
+                    result = tracking_client.track_pro_number(pro_info['pro_number'])
+                    result.load_id = pro_info['load_id']
+                    result.row_index = pro_info['row_index']
+                    tracking_results.append(result)
+                    
+                    # Small delay to avoid overwhelming carriers
+                    time.sleep(0.5)
+                
+                # Clear tracking progress
+                tracking_progress.empty()
+                tracking_status.empty()
+                
+                # Show tracking summary
+                successful_tracks = sum(1 for r in tracking_results if r.scrape_success)
+                st.success(f"✅ Successfully tracked {successful_tracks}/{len(pro_numbers)} PRO numbers")
+                
+            except Exception as e:
+                st.warning(f"⚠️ Error during tracking: {str(e)}")
+                
+            finally:
+                tracking_client.close()
+        
+        # Step 7: Process and save results
+        update_progress("Saving results", 7, "Processing results and saving to database...")
         
         processing_time = time.time() - start_time
         
@@ -2227,6 +2276,63 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
             # Save detailed errors for troubleshooting
             if detailed_errors:
                 db_manager.save_processing_errors(upload_id, detailed_errors)
+            
+            # Save tracking results to database
+            if tracking_results:
+                for result in tracking_results:
+                    # Save tracking request
+                    tracking_request_id = db_manager.save_tracking_request(
+                        upload_id, result.pro_number, result.carrier_name, result.load_id
+                    )
+                    
+                    # Save tracking result
+                    if tracking_request_id:
+                        db_manager.save_tracking_result(
+                            tracking_request_id=tracking_request_id,
+                            tracking_status=result.tracking_status,
+                            tracking_location=result.tracking_location,
+                            tracking_event=result.tracking_event,
+                            tracking_timestamp=result.tracking_timestamp,
+                            scraped_data=result.scraped_data,
+                            scrape_success=result.scrape_success,
+                            error_message=result.error_message
+                                                 )
+            
+            # Generate enhanced output file
+            try:
+                from src.backend.output_generator import EnhancedOutputGenerator
+                
+                # Create output directory
+                os.makedirs('data/outputs', exist_ok=True)
+                
+                # Generate enhanced Excel file
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                output_filename = f"{brokerage_name}_enhanced_output_{timestamp}.xlsx"
+                output_path = os.path.join('data/outputs', output_filename)
+                
+                generator = EnhancedOutputGenerator()
+                output_file = generator.generate_enhanced_excel(
+                    original_df=df,
+                    processing_results=results,
+                    tracking_results=tracking_results,
+                    output_path=output_path,
+                    customer_name=brokerage_name
+                )
+                
+                if output_file:
+                    st.success(f"📊 Enhanced output file generated: {output_filename}")
+                    
+                    # Provide download link
+                    with open(output_file, 'rb') as f:
+                        st.download_button(
+                            label="📥 Download Enhanced Excel Report",
+                            data=f.read(),
+                            file_name=output_filename,
+                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                        )
+                
+            except Exception as e:
+                st.warning(f"⚠️ Could not generate enhanced output: {str(e)}")
         
         # Final progress update
         progress_bar.progress(100)

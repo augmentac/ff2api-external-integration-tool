@@ -247,6 +247,36 @@ class DatabaseManager:
             )
         ''')
         
+        # LTL Tracking tables
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tracking_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                upload_history_id INTEGER NOT NULL,
+                pro_number TEXT NOT NULL,
+                carrier_name TEXT,
+                load_id TEXT,
+                request_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'pending',
+                FOREIGN KEY (upload_history_id) REFERENCES upload_history (id) ON DELETE CASCADE
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tracking_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tracking_request_id INTEGER NOT NULL,
+                tracking_status TEXT,
+                tracking_location TEXT,
+                tracking_event TEXT,
+                tracking_timestamp TEXT,
+                scraped_data TEXT,
+                scrape_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                scrape_success BOOLEAN DEFAULT 1,
+                error_message TEXT,
+                FOREIGN KEY (tracking_request_id) REFERENCES tracking_requests (id) ON DELETE CASCADE
+            )
+        ''')
+        
         # Insert default integration types
         cursor.execute('''
             INSERT OR IGNORE INTO integration_types (type_name, type_display_name, description, default_config)
@@ -2280,11 +2310,130 @@ class DatabaseManager:
         
         cursor.execute('''
             UPDATE external_integrations 
-            SET last_used_at = ?
+            SET last_used_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        ''', (datetime.now(), integration_id))
+        ''', (integration_id,))
         
         conn.commit()
         conn.close()
+
+    # LTL Tracking methods
+    
+    def save_tracking_request(self, upload_history_id, pro_number, carrier_name=None, load_id=None):
+        """Save a tracking request for a PRO number"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         
-        return cursor.rowcount > 0 
+        try:
+            cursor.execute('''
+                INSERT INTO tracking_requests 
+                (upload_history_id, pro_number, carrier_name, load_id)
+                VALUES (?, ?, ?, ?)
+            ''', (upload_history_id, pro_number, carrier_name, load_id))
+            
+            tracking_request_id = cursor.lastrowid
+            conn.commit()
+            
+            logging.info(f"Tracking request saved for PRO number: {pro_number}")
+            return tracking_request_id
+            
+        except Exception as e:
+            logging.error(f"Error saving tracking request: {e}")
+            return None
+        finally:
+            conn.close()
+    
+    def save_tracking_result(self, tracking_request_id, tracking_status=None, tracking_location=None, 
+                           tracking_event=None, tracking_timestamp=None, scraped_data=None, 
+                           scrape_success=True, error_message=None):
+        """Save tracking result data"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                INSERT INTO tracking_results 
+                (tracking_request_id, tracking_status, tracking_location, tracking_event, 
+                 tracking_timestamp, scraped_data, scrape_success, error_message)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (tracking_request_id, tracking_status, tracking_location, tracking_event, 
+                  tracking_timestamp, scraped_data, scrape_success, error_message))
+            
+            result_id = cursor.lastrowid
+            
+            # Update tracking request status
+            cursor.execute('''
+                UPDATE tracking_requests 
+                SET status = ? 
+                WHERE id = ?
+            ''', ('completed' if scrape_success else 'failed', tracking_request_id))
+            
+            conn.commit()
+            
+            logging.info(f"Tracking result saved for request ID: {tracking_request_id}")
+            return result_id
+            
+        except Exception as e:
+            logging.error(f"Error saving tracking result: {e}")
+            return None
+        finally:
+            conn.close()
+    
+    def get_tracking_results_for_upload(self, upload_history_id):
+        """Get all tracking results for a specific upload"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT tr.pro_number, tr.carrier_name, tr.load_id, tr.status,
+                   trs.tracking_status, trs.tracking_location, trs.tracking_event,
+                   trs.tracking_timestamp, trs.scrape_success, trs.error_message
+            FROM tracking_requests tr
+            LEFT JOIN tracking_results trs ON tr.id = trs.tracking_request_id
+            WHERE tr.upload_history_id = ?
+            ORDER BY tr.pro_number
+        ''', (upload_history_id,))
+        
+        results = []
+        for row in cursor.fetchall():
+            results.append({
+                'pro_number': row[0],
+                'carrier_name': row[1],
+                'load_id': row[2],
+                'status': row[3],
+                'tracking_status': row[4],
+                'tracking_location': row[5],
+                'tracking_event': row[6],
+                'tracking_timestamp': row[7],
+                'scrape_success': row[8],
+                'error_message': row[9]
+            })
+        
+        conn.close()
+        return results
+    
+    def get_tracking_requests_by_status(self, status='pending'):
+        """Get tracking requests by status"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, upload_history_id, pro_number, carrier_name, load_id, request_timestamp
+            FROM tracking_requests
+            WHERE status = ?
+            ORDER BY request_timestamp
+        ''', (status,))
+        
+        requests = []
+        for row in cursor.fetchall():
+            requests.append({
+                'id': row[0],
+                'upload_history_id': row[1],
+                'pro_number': row[2],
+                'carrier_name': row[3],
+                'load_id': row[4],
+                'request_timestamp': row[5]
+            })
+        
+        conn.close()
+        return requests
