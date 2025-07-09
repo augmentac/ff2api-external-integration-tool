@@ -26,6 +26,87 @@ class CarrierDetector:
             Dict containing carrier information with patterns, URLs, and metadata
         """
         return {
+            'fedex_freight': {
+                'name': 'FedEx Freight',
+                'patterns': [
+                    r'^(\d{10})$',              # 10-digit format: 5556372640
+                    r'^(\d{3}-\d{7})$',         # 10-digit with dash: 555-6372640
+                    r'^(\d{4}-\d{3}-\d{3})$',   # 10-digit with dashes: 5556-372-640
+                ],
+                'tracking_url': 'https://www.fedex.com/fedextrack/?trknbr={pro_number}&trkqual=~{pro_number}~FDFR',
+                'login_required': False,
+                'css_selectors': {
+                    'status': '[data-testid="trackingStatus"], [data-cy="trackingStatus"], .tracking-status, .shipment-status, .fedex-status',
+                    'location': '[data-testid="location"], [data-cy="location"], .current-location, .location-text, .fedex-location',
+                    'event': '[data-testid="scanEvent"], [data-cy="scanEvent"], .latest-event, .scan-event, .fedex-event'
+                },
+                'priority': 1  # High priority carrier
+            },
+            'rl_carriers': {
+                'name': 'R+L Carriers',
+                'patterns': [
+                    r'^(\d{9})$',        # 9-digit format: 823691187
+                    r'^(\d{3}-\d{6})$',  # 9-digit with dash: 823-691187
+                ],
+                'tracking_url': 'https://www.rlcarriers.com/tracking?pro={pro_number}',
+                'login_required': False,
+                'css_selectors': {
+                    'status': '.tracking-status, .shipment-status, .status-text',
+                    'location': '.current-location, .location-text, .shipment-location',
+                    'event': '.latest-update, .latest-event, .tracking-event'
+                },
+                'priority': 1  # High priority carrier
+            },
+            'estes': {
+                'name': 'Estes Express',
+                'patterns': [
+                    r'^(\d{3}-\d{7})$',  # Standard format: 123-1234567
+                    r'^(\d{10})$',       # 10-digit format: 1234567890
+                    r'^(\d{9})$',        # 9-digit format: 123456789
+                ],
+                'tracking_url': 'https://www.estes-express.com/myestes/tracking/shipment?searchValue={pro_number}',
+                'login_required': False,
+                'css_selectors': {
+                    'status': '.shipment-status, .tracking-status, .status-text',
+                    'location': '.current-location, .location-text, .shipment-location',
+                    'event': '.latest-event, .tracking-event, .shipment-event'
+                },
+                'priority': 1  # High priority carrier
+            },
+            'tforce_freight': {
+                'name': 'TForce Freight',
+                'patterns': [
+                    r'^(2205\d{9})$',    # TForce specific: 2205 + 9 digits
+                    r'^(\d{3}-\d{7})$',  # Standard format: 123-1234567
+                    r'^(\d{10})$',       # 10-digit format: 1234567890
+                    r'^(\d{9})$',        # 9-digit format: 123456789
+                ],
+                'tracking_url': 'https://www.tforcefreight.com/tracking?pro={pro_number}',
+                'login_required': False,
+                'css_selectors': {
+                    'status': '.tracking-status, .shipment-status, .status-text',
+                    'location': '.current-location, .location-text, .shipment-location',
+                    'event': '.latest-event, .tracking-event, .shipment-event'
+                },
+                'priority': 1  # High priority carrier
+            },
+            'peninsula_truck_lines': {
+                'name': 'Peninsula Truck Lines',
+                'patterns': [
+                    r'^(\d{9})$',        # 9-digit format: 536246546
+                    r'^(\d{3}-\d{6})$',  # 9-digit with dash: 536-246546
+                ],
+                'tracking_url': 'https://www.peninsulatruck.com/_/#/track/?pro_number={pro_number}',
+                'login_required': False,
+                'css_selectors': {
+                    'status': '.tracking-status, .shipment-status, .status-text, [class*="status"]',
+                    'location': '.current-location, .location-text, .shipment-location, [class*="location"]',
+                    'event': '.latest-event, .tracking-event, .shipment-event, [class*="event"]'
+                },
+                'priority': 1,  # High priority carrier
+                'spa_app': True  # Single Page Application - requires special handling
+            },
+            # Legacy carriers (lower priority)
             'old_dominion': {
                 'name': 'Old Dominion Freight',
                 'patterns': [
@@ -38,7 +119,8 @@ class CarrierDetector:
                     'status': '.tracking-status',
                     'location': '.current-location',
                     'event': '.latest-event'
-                }
+                },
+                'priority': 2  # Lower priority
             },
             'ups_freight': {
                 'name': 'UPS Freight',
@@ -52,21 +134,8 @@ class CarrierDetector:
                     'status': '[data-qa-id="trackingStatus"]',
                     'location': '[data-qa-id="location"]',
                     'event': '[data-qa-id="latestEvent"]'
-                }
-            },
-            'fedex_freight': {
-                'name': 'FedEx Freight',
-                'patterns': [
-                    r'^(\d{4}-\d{4}-\d{4})$',  # 12-digit with dashes
-                    r'^(\d{12})$',              # 12-digit without dashes
-                ],
-                'tracking_url': 'https://www.fedex.com/apps/fedextrack/?action=track&trackingnumber={pro_number}',
-                'login_required': False,
-                'css_selectors': {
-                    'status': '[data-cy="trackingStatus"]',
-                    'location': '[data-cy="location"]',
-                    'event': '[data-cy="scanEvent"]'
-                }
+                },
+                'priority': 2  # Lower priority
             },
             'xpo_logistics': {
                 'name': 'XPO Logistics',
@@ -80,7 +149,8 @@ class CarrierDetector:
                     'status': '.status-text',
                     'location': '.location-text',
                     'event': '.event-description'
-                }
+                },
+                'priority': 2  # Lower priority
             },
             'saia': {
                 'name': 'Saia',
@@ -94,21 +164,8 @@ class CarrierDetector:
                     'status': '.tracking-status',
                     'location': '.current-location',
                     'event': '.latest-activity'
-                }
-            },
-            'estes': {
-                'name': 'Estes Express',
-                'patterns': [
-                    r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
-                ],
-                'tracking_url': 'https://www.estes-express.com/myestes/tracking/shipment?searchValue={pro_number}',
-                'login_required': False,
-                'css_selectors': {
-                    'status': '.shipment-status',
-                    'location': '.current-location',
-                    'event': '.latest-event'
-                }
+                },
+                'priority': 2  # Lower priority
             },
             'abf_freight': {
                 'name': 'ABF Freight',
@@ -122,21 +179,8 @@ class CarrierDetector:
                     'status': '.pro-status',
                     'location': '.pro-location',
                     'event': '.pro-event'
-                }
-            },
-            'rl_carriers': {
-                'name': 'R+L Carriers',
-                'patterns': [
-                    r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
-                ],
-                'tracking_url': 'https://www.rlcarriers.com/tracking?pro={pro_number}',
-                'login_required': False,
-                'css_selectors': {
-                    'status': '.tracking-status',
-                    'location': '.current-location',
-                    'event': '.latest-update'
-                }
+                },
+                'priority': 2  # Lower priority
             },
             'yrc_freight': {
                 'name': 'YRC Freight',
@@ -150,7 +194,8 @@ class CarrierDetector:
                     'status': '.shipment-status',
                     'location': '.current-location',
                     'event': '.latest-activity'
-                }
+                },
+                'priority': 2  # Lower priority
             },
             'southeastern_freight': {
                 'name': 'Southeastern Freight',
@@ -164,7 +209,8 @@ class CarrierDetector:
                     'status': '.tracking-status',
                     'location': '.current-location',
                     'event': '.latest-event'
-                }
+                },
+                'priority': 2  # Lower priority
             },
             'dayton_freight': {
                 'name': 'Dayton Freight',
@@ -178,21 +224,8 @@ class CarrierDetector:
                     'status': '.tracking-status',
                     'location': '.current-location',
                     'event': '.latest-event'
-                }
-            },
-            'tforce_freight': {
-                'name': 'TForce Freight',
-                'patterns': [
-                    r'^(\d{3}-\d{7})$',  # Standard format
-                    r'^(\d{10})$',       # Alternate format
-                ],
-                'tracking_url': 'https://www.tforcefreight.com/tracking?pro={pro_number}',
-                'login_required': False,
-                'css_selectors': {
-                    'status': '.tracking-status',
-                    'location': '.current-location',
-                    'event': '.latest-event'
-                }
+                },
+                'priority': 2  # Lower priority
             }
         }
     
@@ -218,10 +251,16 @@ class CarrierDetector:
         for carrier_code, carrier_info in self.carrier_patterns.items():
             for pattern in carrier_info['patterns']:
                 if re.match(pattern, cleaned_pro):
+                    tracking_url = carrier_info['tracking_url']
+                    if tracking_url:
+                        tracking_url = tracking_url.format(pro_number=cleaned_pro)
+                    else:
+                        tracking_url = ''
+                    
                     return {
                         'carrier_code': carrier_code,
                         'carrier_name': carrier_info['name'],
-                        'tracking_url': carrier_info['tracking_url'].format(pro_number=cleaned_pro),
+                        'tracking_url': tracking_url,
                         'login_required': carrier_info['login_required'],
                         'css_selectors': carrier_info['css_selectors']
                     }
@@ -230,7 +269,7 @@ class CarrierDetector:
         return {
             'carrier_code': 'unknown',
             'carrier_name': 'Unknown Carrier',
-            'tracking_url': None,
+            'tracking_url': '',
             'login_required': False,
             'css_selectors': {}
         }
@@ -364,7 +403,9 @@ def get_tracking_url(pro_number: Optional[str], carrier_code: str = None) -> Opt
     if carrier_code:
         carrier_info = carrier_detector.get_carrier_info(carrier_code)
         if carrier_info and 'tracking_url' in carrier_info and carrier_info['tracking_url']:
-            return carrier_info['tracking_url'].format(pro_number=pro_number)
+            tracking_url = carrier_info['tracking_url']
+            if tracking_url:
+                return tracking_url.format(pro_number=pro_number)
     
     # Try to detect carrier
     detected = carrier_detector.detect_carrier(pro_number)

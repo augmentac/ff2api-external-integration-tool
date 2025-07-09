@@ -160,14 +160,27 @@ class LTLTrackingClient:
         Returns:
             Dict containing tracking data or None if failed
         """
+        # Check if this is an SPA application (like Peninsula)
+        is_spa = carrier_info.get('spa_app', False)
+        
         for attempt in range(self.max_retries):
             try:
                 # Make the request
                 response = self.session.get(tracking_url, timeout=self.timeout)
                 response.raise_for_status()
                 
+                # For SPA applications, we may need to wait for JavaScript to load
+                if is_spa:
+                    time.sleep(3)  # Give SPA time to load
+                
                 # Parse the HTML
                 soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # For Peninsula and other SPAs, try to extract data from scripts first
+                if is_spa:
+                    script_data = self._extract_spa_data(response.text, carrier_info)
+                    if script_data:
+                        return script_data
                 
                 # Extract tracking data using CSS selectors
                 tracking_data = self._extract_tracking_data(soup, carrier_info.get('css_selectors', {}))
@@ -187,6 +200,81 @@ class LTLTrackingClient:
                 break
         
         return None
+
+    def _extract_spa_data(self, html_content: str, carrier_info: Dict) -> Optional[Dict[str, Any]]:
+        """
+        Extract data from Single Page Applications by parsing JavaScript.
+        
+        Args:
+            html_content: Raw HTML content
+            carrier_info: Carrier information
+            
+        Returns:
+            Dict containing extracted tracking data
+        """
+        tracking_data = {}
+        
+        try:
+            import re
+            
+            # Look for common SPA data patterns
+            patterns = [
+                r'trackingStatus["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'status["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'shipmentStatus["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'"status":\s*"([^"]+)"',
+                r'tracking.*status.*"([^"]+)"',
+            ]
+            
+            for pattern in patterns:
+                matches = re.findall(pattern, html_content, re.IGNORECASE)
+                if matches:
+                    tracking_data['status'] = matches[0]
+                    break
+            
+            # Look for location data
+            location_patterns = [
+                r'location["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'currentLocation["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'"location":\s*"([^"]+)"',
+            ]
+            
+            for pattern in location_patterns:
+                matches = re.findall(pattern, html_content, re.IGNORECASE)
+                if matches:
+                    tracking_data['location'] = matches[0]
+                    break
+            
+            # Look for event data
+            event_patterns = [
+                r'lastEvent["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'latestActivity["\']?\s*:\s*["\']([^"\']+)["\']',
+                r'"event":\s*"([^"]+)"',
+            ]
+            
+            for pattern in event_patterns:
+                matches = re.findall(pattern, html_content, re.IGNORECASE)
+                if matches:
+                    tracking_data['event'] = matches[0]
+                    break
+            
+            # Peninsula-specific: Look for API endpoints or data
+            if 'peninsula' in carrier_info.get('name', '').lower():
+                peninsula_patterns = [
+                    r'pro.*?(\d{9})',
+                    r'tracking.*?status.*?"([^"]+)"',
+                    r'shipment.*?data.*?"([^"]+)"'
+                ]
+                
+                for pattern in peninsula_patterns:
+                    matches = re.findall(pattern, html_content, re.IGNORECASE)
+                    if matches and not tracking_data.get('status'):
+                        tracking_data['peninsula_data'] = matches[0]
+        
+        except Exception as e:
+            logging.debug(f"Error extracting SPA data: {e}")
+        
+        return tracking_data if tracking_data else None
     
     def _extract_tracking_data(self, soup: BeautifulSoup, selectors: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """
@@ -202,34 +290,47 @@ class LTLTrackingClient:
         tracking_data = {}
         
         try:
-            # Extract status
+            # Extract status using multiple selectors as fallbacks
             if 'status' in selectors:
-                status_element = soup.select_one(selectors['status'])
-                if status_element:
-                    tracking_data['status'] = self._clean_text(status_element.get_text())
+                status_selectors = selectors['status'].split(', ')
+                for selector in status_selectors:
+                    status_element = soup.select_one(selector.strip())
+                    if status_element and status_element.get_text().strip():
+                        tracking_data['status'] = self._clean_text(status_element.get_text())
+                        break
             
-            # Extract location
+            # Extract location using multiple selectors as fallbacks
             if 'location' in selectors:
-                location_element = soup.select_one(selectors['location'])
-                if location_element:
-                    tracking_data['location'] = self._clean_text(location_element.get_text())
+                location_selectors = selectors['location'].split(', ')
+                for selector in location_selectors:
+                    location_element = soup.select_one(selector.strip())
+                    if location_element and location_element.get_text().strip():
+                        tracking_data['location'] = self._clean_text(location_element.get_text())
+                        break
             
-            # Extract event/activity
+            # Extract event/activity using multiple selectors as fallbacks
             if 'event' in selectors:
-                event_element = soup.select_one(selectors['event'])
-                if event_element:
-                    tracking_data['event'] = self._clean_text(event_element.get_text())
+                event_selectors = selectors['event'].split(', ')
+                for selector in event_selectors:
+                    event_element = soup.select_one(selector.strip())
+                    if event_element and event_element.get_text().strip():
+                        tracking_data['event'] = self._clean_text(event_element.get_text())
+                        break
             
             # Try to extract timestamp
             timestamp_selectors = ['timestamp', 'date', 'time', 'datetime']
             for ts_selector in timestamp_selectors:
                 if ts_selector in selectors:
                     timestamp_element = soup.select_one(selectors[ts_selector])
-                    if timestamp_element:
+                    if timestamp_element and timestamp_element.get_text().strip():
                         tracking_data['timestamp'] = self._clean_text(timestamp_element.get_text())
                         break
             
-            # If no specific selectors worked, try generic fallback
+            # Enhanced extraction for priority carriers
+            if not tracking_data or len(tracking_data) < 2:
+                tracking_data.update(self._priority_carrier_extraction(soup))
+            
+            # If still no specific data found, try generic fallback
             if not tracking_data:
                 tracking_data = self._generic_fallback_extraction(soup)
             
@@ -241,6 +342,115 @@ class LTLTrackingClient:
         except Exception as e:
             logging.error(f"Error extracting tracking data: {e}")
             return None
+
+    def _priority_carrier_extraction(self, soup: BeautifulSoup) -> Dict[str, Any]:
+        """
+        Enhanced extraction specifically for our 5 priority carriers.
+        
+        Args:
+            soup: BeautifulSoup parsed HTML
+            
+        Returns:
+            Dict containing extracted tracking data
+        """
+        tracking_data = {}
+        
+        try:
+            # FedEx Freight specific patterns
+            fedex_status = soup.select_one('[data-testid="trackingStatus"], [data-cy="trackingStatus"], .fedex-status')
+            if fedex_status:
+                tracking_data['status'] = self._clean_text(fedex_status.get_text())
+            
+            # R+L Carriers specific patterns
+            rl_status = soup.select_one('.tracking-status, .shipment-status, [class*="status"]')
+            if rl_status and 'rlcarriers' in soup.get_text().lower():
+                tracking_data['status'] = self._clean_text(rl_status.get_text())
+            
+            # Estes Express specific patterns  
+            estes_status = soup.select_one('.shipment-status, .tracking-detail, [class*="estes"]')
+            if estes_status and 'estes' in soup.get_text().lower():
+                tracking_data['status'] = self._clean_text(estes_status.get_text())
+            
+            # TForce Freight specific patterns
+            tforce_status = soup.select_one('.tracking-status, [class*="tforce"], [class*="freight"]')
+            if tforce_status and ('tforce' in soup.get_text().lower() or 'freight' in soup.get_text().lower()):
+                tracking_data['status'] = self._clean_text(tforce_status.get_text())
+            
+            # Peninsula Truck Lines specific patterns (SPA handling)
+            peninsula_data = self._extract_peninsula_data(soup)
+            if peninsula_data:
+                tracking_data.update(peninsula_data)
+            
+            # Look for common table structures used by LTL carriers
+            tracking_table = soup.select_one('table[class*="track"], table[class*="status"], table[class*="shipment"]')
+            if tracking_table:
+                rows = tracking_table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:
+                        header = self._clean_text(cells[0].get_text()).lower()
+                        value = self._clean_text(cells[1].get_text())
+                        if 'status' in header and value:
+                            tracking_data['status'] = value
+                        elif 'location' in header and value:
+                            tracking_data['location'] = value
+                        elif 'event' in header or 'activity' in header and value:
+                            tracking_data['event'] = value
+                        elif 'date' in header or 'time' in header and value:
+                            tracking_data['timestamp'] = value
+        
+        except Exception as e:
+            logging.debug(f"Error in priority carrier extraction: {e}")
+        
+        return tracking_data
+
+    def _extract_peninsula_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
+        """
+        Specific extraction for Peninsula Truck Lines SPA.
+        
+        Args:
+            soup: BeautifulSoup parsed HTML
+            
+        Returns:
+            Dict containing Peninsula tracking data
+        """
+        tracking_data = {}
+        
+        try:
+            # Peninsula uses SPA, so look for script tags with data
+            script_tags = soup.find_all('script')
+            for script in script_tags:
+                script_content = script.get_text()
+                if 'tracking' in script_content.lower() or 'status' in script_content.lower():
+                    # Try to extract JSON data from script tags
+                    import re
+                    json_matches = re.findall(r'\{[^{}]*"status"[^{}]*\}', script_content)
+                    for match in json_matches:
+                        try:
+                            data = json.loads(match)
+                            if 'status' in data:
+                                tracking_data['status'] = str(data['status'])
+                            break
+                        except:
+                            continue
+            
+            # Look for Peninsula-specific elements
+            peninsula_status = soup.select_one('[class*="peninsula"], [id*="peninsula"], [class*="track"]')
+            if peninsula_status:
+                tracking_data['status'] = self._clean_text(peninsula_status.get_text())
+            
+            # Check for any hidden form data or meta tags
+            meta_tags = soup.find_all('meta')
+            for meta in meta_tags:
+                if meta.get('name') and 'tracking' in meta.get('name', '').lower():
+                    content = meta.get('content', '')
+                    if content:
+                        tracking_data['meta_tracking'] = content
+        
+        except Exception as e:
+            logging.debug(f"Error extracting Peninsula data: {e}")
+        
+        return tracking_data
     
     def _generic_fallback_extraction(self, soup: BeautifulSoup) -> Dict[str, Any]:
         """

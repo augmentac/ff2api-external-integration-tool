@@ -1245,7 +1245,7 @@ def main_workflow(db_manager, data_processor):
     
     # === TAB SYSTEM FOR DIFFERENT WORKFLOWS ===
     # Create tabs for different functionality
-    tab1, tab2 = st.tabs(["📤 CSV → API Processing", "🔌 External Integrations"])
+    tab1, tab2 = st.tabs(["📤 CSV → API Processing", "📊 Integration Status"])
     
     with tab1:
         _render_csv_api_workflow(db_manager, data_processor)
@@ -1272,19 +1272,10 @@ def _render_csv_api_workflow(db_manager, data_processor):
 
 def _render_external_integrations_workflow(db_manager, brokerage_name):
     """Render the external integrations workflow"""
-    from src.frontend.ui_components import create_external_integrations_interface
+    from src.frontend.integration_status_ui import create_integration_status_dashboard
     
-    # Add a brief introduction
-    st.markdown("""
-        ### 🔌 External Integrations
-        
-        Connect with external APIs and data sources to enrich your freight data. 
-        Pull information from LTL carriers, tracking systems, pricing APIs, and more to create 
-        enhanced output files with additional insights.
-    """)
-    
-    # Show the external integrations interface
-    create_external_integrations_interface(db_manager, brokerage_name)
+    # Show the integration status dashboard
+    create_integration_status_dashboard(db_manager, brokerage_name)
 
 def _render_landing_page():
     """Clean landing page focused on file upload"""
