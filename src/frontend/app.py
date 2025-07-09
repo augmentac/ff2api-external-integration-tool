@@ -1245,12 +1245,15 @@ def main_workflow(db_manager, data_processor):
     
     # === TAB SYSTEM FOR DIFFERENT WORKFLOWS ===
     # Create tabs for different functionality
-    tab1, tab2 = st.tabs(["📤 CSV → API Processing", "📊 Integration Status"])
+    tab1, tab2, tab3 = st.tabs(["📤 CSV → API Processing", "🚛 PRO Tracking", "📊 Integration Status"])
     
     with tab1:
         _render_csv_api_workflow(db_manager, data_processor)
     
     with tab2:
+        _render_pro_tracking_workflow(db_manager, brokerage_name)
+    
+    with tab3:
         _render_external_integrations_workflow(db_manager, brokerage_name)
 
 def _render_csv_api_workflow(db_manager, data_processor):
@@ -1269,6 +1272,13 @@ def _render_csv_api_workflow(db_manager, data_processor):
         # === PROGRESSIVE WORKFLOW ===
         # Show progress and workflow sections after file upload
         _render_workflow_with_progress(db_manager, data_processor)
+
+def _render_pro_tracking_workflow(db_manager, brokerage_name):
+    """Render the PRO tracking workflow"""
+    from src.frontend.pro_tracking_ui import create_pro_tracking_interface
+    
+    # Show the PRO tracking interface
+    create_pro_tracking_interface(db_manager, brokerage_name)
 
 def _render_external_integrations_workflow(db_manager, brokerage_name):
     """Render the external integrations workflow"""
