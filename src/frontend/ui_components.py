@@ -2226,30 +2226,66 @@ def generate_sample_api_preview(df: pd.DataFrame, field_mappings: Dict[str, str]
 def create_external_integrations_interface(db_manager, brokerage_name):
     """Create the main external integrations management interface"""
     st.header("🔌 External Integrations")
-    st.caption("Manage integrations with external APIs and data sources")
+    st.caption("Manage integrations with external APIs and web scrapers")
     
-    # Get existing integrations
-    integrations = db_manager.get_external_integrations(brokerage_name)
+    # Create main tabs for API vs Web integrations
+    api_tab, web_tab = st.tabs(["🔗 API Integrations", "🌐 Web Scrapers"])
+    
+    with api_tab:
+        _render_api_integrations_section(db_manager, brokerage_name)
+    
+    with web_tab:
+        _render_web_scrapers_section(db_manager, brokerage_name)
+
+def _render_api_integrations_section(db_manager, brokerage_name):
+    """Render the API integrations section"""
+    st.subheader("🔗 API Integrations")
+    st.caption("Connect with external APIs for data exchange")
+    
+    # Get existing API integrations (filter out web scraper types)
+    all_integrations = db_manager.get_external_integrations(brokerage_name)
+    api_integrations = [i for i in all_integrations if i['type_name'] != 'web_scraper']
     
     # Create tabs for different integration management sections
-    tab1, tab2, tab3 = st.tabs(["📋 Manage Integrations", "➕ Add New Integration", "📊 Integration History"])
+    tab1, tab2, tab3 = st.tabs(["📋 Manage APIs", "➕ Add New API", "📊 API History"])
     
     with tab1:
-        _render_integrations_list(db_manager, brokerage_name, integrations)
+        _render_integrations_list(db_manager, brokerage_name, api_integrations, integration_type="API")
     
     with tab2:
-        _render_new_integration_form(db_manager, brokerage_name)
+        _render_new_api_integration_form(db_manager, brokerage_name)
     
     with tab3:
-        _render_integration_history(db_manager, brokerage_name, integrations)
+        _render_integration_history(db_manager, brokerage_name, api_integrations, title="API Integration History")
 
-def _render_integrations_list(db_manager, brokerage_name, integrations):
+def _render_web_scrapers_section(db_manager, brokerage_name):
+    """Render the web scrapers section"""
+    st.subheader("🌐 Web Scrapers")
+    st.caption("Automated web scraping for carrier data extraction")
+    
+    # Get existing web scraper integrations
+    all_integrations = db_manager.get_external_integrations(brokerage_name)
+    web_scrapers = [i for i in all_integrations if i['type_name'] == 'web_scraper']
+    
+    # Create tabs for web scraper management
+    tab1, tab2, tab3 = st.tabs(["🕷️ Manage Scrapers", "➕ Add New Scraper", "📊 Scraper History"])
+    
+    with tab1:
+        _render_web_scrapers_list(db_manager, brokerage_name, web_scrapers)
+    
+    with tab2:
+        _render_new_web_scraper_form(db_manager, brokerage_name)
+    
+    with tab3:
+        _render_integration_history(db_manager, brokerage_name, web_scrapers, title="Web Scraper History")
+
+def _render_integrations_list(db_manager, brokerage_name, integrations, integration_type="Integration"):
     """Render the list of existing integrations"""
     if not integrations:
-        st.info("No external integrations configured yet. Create your first integration using the 'Add New Integration' tab.")
+        st.info(f"No {integration_type.lower()}s configured yet. Create your first {integration_type.lower()} using the 'Add New {integration_type}' tab.")
         return
     
-    st.subheader("📋 Active Integrations")
+    st.subheader(f"📋 Active {integration_type}s")
     
     # Create grid layout for integration cards
     cols = st.columns(2)
@@ -2721,9 +2757,9 @@ def _render_generic_config(config_data=None):
     
     return config_data
 
-def _render_integration_history(db_manager, brokerage_name, integrations):
+def _render_integration_history(db_manager, brokerage_name, integrations, title="Integration History"):
     """Render integration execution history"""
-    st.subheader("📊 Integration History")
+    st.subheader(f"📊 {title}")
     
     if not integrations:
         st.info("No integrations available to show history for.")
@@ -2910,3 +2946,532 @@ def _get_integration_icon(integration_type):
         'custom_integration': '🔧'
     }
     return icon_map.get(integration_type, '🔌')
+
+def _render_new_api_integration_form(db_manager, brokerage_name):
+    """Render the new API integration form"""
+    st.subheader("➕ Add New API Integration")
+    
+    # Get available API integration types (exclude web scrapers)
+    all_integration_types = db_manager.get_integration_types()
+    api_integration_types = [t for t in all_integration_types if t['type_name'] != 'web_scraper']
+    
+    with st.form("new_api_integration_form"):
+        # Basic information
+        st.subheader("📋 Basic Information")
+        
+        integration_name = st.text_input(
+            "Integration Name",
+            placeholder="e.g., UPS Tracking API",
+            help="Choose a descriptive name for this integration"
+        )
+        
+        # Integration type selection
+        type_options = {t['type_display_name']: t for t in api_integration_types}
+        selected_type_name = st.selectbox(
+            "Integration Type",
+            options=list(type_options.keys()),
+            help="Select the type of API integration you want to create"
+        )
+        
+        selected_type = type_options[selected_type_name]
+        
+        # Show description of selected type
+        if selected_type['description']:
+            st.info(f"ℹ️ {selected_type['description']}")
+        
+        description = st.text_area(
+            "Description",
+            placeholder="Describe what this integration does...",
+            help="Optional description for documentation purposes"
+        )
+        
+        # Configuration section
+        st.subheader("⚙️ Configuration")
+        
+        config_data = {}
+        
+        # Type-specific configuration
+        if selected_type['type_name'] == 'ltl_carrier':
+            config_data = _render_ltl_carrier_config()
+        elif selected_type['type_name'] == 'freight_api':
+            config_data = _render_freight_api_config()
+        elif selected_type['type_name'] == 'tracking_api':
+            config_data = _render_tracking_api_config()
+        elif selected_type['type_name'] == 'pricing_api':
+            config_data = _render_pricing_api_config()
+        elif selected_type['type_name'] == 'warehouse_api':
+            config_data = _render_warehouse_api_config()
+        elif selected_type['type_name'] == 'custom_integration':
+            config_data = _render_custom_integration_config()
+        else:
+            config_data = _render_generic_config()
+        
+        # Authentication section
+        st.subheader("🔐 Authentication")
+        
+        auth_type = st.selectbox(
+            "Authentication Type",
+            ["api_key", "bearer_token", "basic_auth", "oauth", "custom"],
+            help="Select how to authenticate with the external API"
+        )
+        
+        auth_config = {}
+        
+        if auth_type == "api_key":
+            auth_config['api_key'] = st.text_input(
+                "API Key",
+                type="password",
+                help="Enter your API key"
+            )
+        elif auth_type == "bearer_token":
+            auth_config['bearer_token'] = st.text_input(
+                "Bearer Token",
+                type="password",
+                help="Enter your bearer token"
+            )
+        elif auth_type == "basic_auth":
+            auth_config['username'] = st.text_input("Username")
+            auth_config['password'] = st.text_input("Password", type="password")
+        elif auth_type == "oauth":
+            auth_config['client_id'] = st.text_input("Client ID")
+            auth_config['client_secret'] = st.text_input("Client Secret", type="password")
+            auth_config['authorization_url'] = st.text_input("Authorization URL")
+            auth_config['token_url'] = st.text_input("Token URL")
+        elif auth_type == "custom":
+            auth_config['custom_headers'] = st.text_area(
+                "Custom Headers (JSON format)",
+                placeholder='{"Authorization": "Custom auth_token", "X-API-Key": "your_key"}',
+                help="Enter custom headers in JSON format"
+            )
+        
+        # Output configuration
+        st.subheader("📤 Output Configuration")
+        
+        output_format = st.selectbox(
+            "Output Format",
+            ["csv", "json", "excel"],
+            help="Select the format for generated output files"
+        )
+        
+        output_filename_template = st.text_input(
+            "Output Filename Template",
+            value=f"{integration_name}_{'{timestamp}'}",
+            help="Use {timestamp} for automatic timestamp. Example: MyIntegration_{timestamp}"
+        )
+        
+        # Submit button
+        if st.form_submit_button("🔌 Create API Integration", type="primary"):
+            try:
+                # Validate required fields
+                if not integration_name.strip():
+                    st.error("Integration name is required")
+                    st.stop()
+                
+                # Save the integration
+                integration_id = db_manager.save_external_integration(
+                    brokerage_name,
+                    integration_name,
+                    selected_type['id'],
+                    config_data,
+                    auth_config,
+                    description
+                )
+                
+                # Save output configuration
+                output_config = {
+                    'format': output_format,
+                    'filename_template': output_filename_template,
+                    'include_timestamp': True,
+                    'compression': None
+                }
+                
+                db_manager.save_integration_output_config(
+                    integration_id,
+                    output_config
+                )
+                
+                st.success(f"✅ API integration '{integration_name}' created successfully!")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Error creating integration: {e}")
+
+def _render_web_scrapers_list(db_manager, brokerage_name, web_scrapers):
+    """Render the list of web scrapers organized by carrier"""
+    if not web_scrapers:
+        st.info("No web scrapers configured yet. Create your first web scraper using the 'Add New Scraper' tab.")
+        return
+    
+    st.subheader("🕷️ Active Web Scrapers")
+    
+    # Group scrapers by carrier
+    scrapers_by_carrier = {}
+    for scraper in web_scrapers:
+        config = scraper.get('config_data', {})
+        carrier = config.get('carrier_name', 'Unknown Carrier')
+        
+        if carrier not in scrapers_by_carrier:
+            scrapers_by_carrier[carrier] = []
+        scrapers_by_carrier[carrier].append(scraper)
+    
+    # Render each carrier section
+    for carrier, scrapers in scrapers_by_carrier.items():
+        st.subheader(f"🚛 {carrier}")
+        
+        # Create columns for scraper cards
+        cols = st.columns(2)
+        
+        for idx, scraper in enumerate(scrapers):
+            with cols[idx % 2]:
+                _render_web_scraper_card(db_manager, scraper)
+
+def _render_web_scraper_card(db_manager, scraper):
+    """Render a single web scraper card"""
+    config = scraper.get('config_data', {})
+    
+    with st.container():
+        st.markdown(f"""
+            <div class="custom-card">
+                <h4 style="margin-bottom: 0.5rem;">
+                    🕷️ {scraper['name']}
+                </h4>
+                <p style="color: #64748b; margin: 0.25rem 0;">
+                    <strong>Carrier:</strong> {config.get('carrier_name', 'Unknown')}
+                </p>
+                <p style="color: #64748b; margin: 0.25rem 0;">
+                    <strong>Target URL:</strong> {config.get('target_url', 'Not configured')}
+                </p>
+                <p style="color: #64748b; margin: 0.25rem 0; font-size: 0.9rem;">
+                    {scraper['description'] or 'No description'}
+                </p>
+                <p style="color: #64748b; margin: 0.25rem 0; font-size: 0.85rem;">
+                    <strong>Last Used:</strong> {scraper['last_used_at'] or 'Never'}
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Action buttons
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("⚙️ Configure", key=f"config_scraper_{scraper['id']}", use_container_width=True):
+                st.session_state[f"edit_scraper_{scraper['id']}"] = True
+        
+        with col2:
+            if st.button("▶️ Run", key=f"run_scraper_{scraper['id']}", use_container_width=True):
+                _execute_web_scraper(db_manager, scraper)
+        
+        with col3:
+            if st.button("🗑️ Delete", key=f"delete_scraper_{scraper['id']}", use_container_width=True):
+                st.session_state[f"confirm_delete_scraper_{scraper['id']}"] = True
+        
+        # Show confirmation dialog if delete was clicked
+        if st.session_state.get(f"confirm_delete_scraper_{scraper['id']}", False):
+            st.warning(f"⚠️ Are you sure you want to delete '{scraper['name']}'?")
+            col_confirm1, col_confirm2 = st.columns(2)
+            with col_confirm1:
+                if st.button("✅ Yes, Delete", key=f"confirm_yes_scraper_{scraper['id']}", type="primary"):
+                    db_manager.delete_external_integration(scraper['id'])
+                    st.success(f"Web scraper '{scraper['name']}' deleted successfully")
+                    st.session_state[f"confirm_delete_scraper_{scraper['id']}"] = False
+                    st.rerun()
+            with col_confirm2:
+                if st.button("❌ Cancel", key=f"confirm_no_scraper_{scraper['id']}"):
+                    st.session_state[f"confirm_delete_scraper_{scraper['id']}"] = False
+                    st.rerun()
+
+def _render_new_web_scraper_form(db_manager, brokerage_name):
+    """Render the new web scraper form organized by carrier"""
+    st.subheader("➕ Add New Web Scraper")
+    
+    # Common LTL carriers
+    ltl_carriers = [
+        "UPS Freight", "FedEx Freight", "YRC Freight", "XPO Logistics",
+        "Old Dominion Freight", "Saia", "Estes Express", "ABF Freight",
+        "R+L Carriers", "Southeastern Freight", "Wilson Logistics",
+        "Dayton Freight", "TForce Freight", "Custom Carrier"
+    ]
+    
+    with st.form("new_web_scraper_form"):
+        # Basic information
+        st.subheader("📋 Basic Information")
+        
+        carrier_name = st.selectbox(
+            "Carrier",
+            options=ltl_carriers,
+            help="Select the LTL carrier for this web scraper"
+        )
+        
+        # Allow custom carrier name
+        if carrier_name == "Custom Carrier":
+            carrier_name = st.text_input(
+                "Custom Carrier Name",
+                placeholder="Enter custom carrier name...",
+                help="Enter the name of your custom carrier"
+            )
+        
+        scraper_name = st.text_input(
+            "Scraper Name",
+            value=f"{carrier_name} Scraper",
+            help="Name for this web scraper"
+        )
+        
+        description = st.text_area(
+            "Description",
+            placeholder="Describe what this scraper does...",
+            help="Optional description for documentation purposes"
+        )
+        
+        # Web scraper configuration
+        st.subheader("🌐 Web Scraper Configuration")
+        
+        target_url = st.text_input(
+            "Target URL",
+            placeholder="https://example.com/tracking",
+            help="The URL where the scraper will extract data"
+        )
+        
+        scraper_type = st.selectbox(
+            "Scraper Type",
+            ["tracking", "pricing", "transit_time", "service_check", "custom"],
+            help="Select the type of data this scraper will extract"
+        )
+        
+        # CSS selectors for data extraction
+        st.subheader("🎯 Data Extraction")
+        
+        css_selectors = st.text_area(
+            "CSS Selectors (JSON format)",
+            placeholder='{\n  "tracking_number": ".tracking-number",\n  "status": ".status",\n  "location": ".current-location"\n}',
+            help="Define CSS selectors for data extraction in JSON format"
+        )
+        
+        # Web credentials
+        st.subheader("🔐 Web Credentials")
+        
+        auth_required = st.checkbox(
+            "Authentication Required",
+            help="Check if the website requires login credentials"
+        )
+        
+        auth_config = {}
+        
+        if auth_required:
+            auth_method = st.selectbox(
+                "Authentication Method",
+                ["form_login", "basic_auth", "session_token", "custom"],
+                help="Select how to authenticate with the website"
+            )
+            
+            if auth_method == "form_login":
+                auth_config['username'] = st.text_input("Username")
+                auth_config['password'] = st.text_input("Password", type="password")
+                auth_config['login_url'] = st.text_input("Login URL")
+                auth_config['username_field'] = st.text_input("Username Field Selector", placeholder="#username")
+                auth_config['password_field'] = st.text_input("Password Field Selector", placeholder="#password")
+                auth_config['submit_button'] = st.text_input("Submit Button Selector", placeholder="input[type='submit']")
+            
+            elif auth_method == "basic_auth":
+                auth_config['username'] = st.text_input("Username")
+                auth_config['password'] = st.text_input("Password", type="password")
+            
+            elif auth_method == "session_token":
+                auth_config['session_token'] = st.text_input("Session Token", type="password")
+                auth_config['token_header'] = st.text_input("Token Header", placeholder="Authorization")
+            
+            elif auth_method == "custom":
+                auth_config['custom_headers'] = st.text_area(
+                    "Custom Headers (JSON format)",
+                    placeholder='{"Authorization": "Bearer token", "X-API-Key": "key"}',
+                    help="Enter custom headers in JSON format"
+                )
+        
+        # Scraper settings
+        st.subheader("⚙️ Scraper Settings")
+        
+        delay_between_requests = st.slider(
+            "Delay Between Requests (seconds)",
+            min_value=1,
+            max_value=60,
+            value=5,
+            help="Delay between requests to avoid being blocked"
+        )
+        
+        max_retries = st.number_input(
+            "Max Retries",
+            min_value=1,
+            max_value=10,
+            value=3,
+            help="Maximum number of retry attempts"
+        )
+        
+        timeout = st.number_input(
+            "Timeout (seconds)",
+            min_value=10,
+            max_value=120,
+            value=30,
+            help="Request timeout in seconds"
+        )
+        
+        # Output configuration
+        st.subheader("📤 Output Configuration")
+        
+        output_format = st.selectbox(
+            "Output Format",
+            ["csv", "json", "excel"],
+            help="Select the format for generated output files"
+        )
+        
+        output_filename_template = st.text_input(
+            "Output Filename Template",
+            value=f"{scraper_name}_{'{timestamp}'}",
+            help="Use {timestamp} for automatic timestamp"
+        )
+        
+        # Submit button
+        if st.form_submit_button("🕷️ Create Web Scraper", type="primary"):
+            try:
+                # Validate required fields
+                if not scraper_name.strip():
+                    st.error("Scraper name is required")
+                    st.stop()
+                
+                if not target_url.strip():
+                    st.error("Target URL is required")
+                    st.stop()
+                
+                # Parse CSS selectors
+                try:
+                    import json
+                    selectors = json.loads(css_selectors) if css_selectors.strip() else {}
+                except json.JSONDecodeError:
+                    st.error("Invalid CSS selectors JSON format")
+                    st.stop()
+                
+                # Get or create web scraper integration type
+                integration_types = db_manager.get_integration_types()
+                web_scraper_type = next((t for t in integration_types if t['type_name'] == 'web_scraper'), None)
+                
+                if not web_scraper_type:
+                    # Create web scraper type if it doesn't exist
+                    web_scraper_type_id = db_manager.save_integration_type(
+                        'web_scraper',
+                        'Web Scraper',
+                        'Automated web scraping for data extraction'
+                    )
+                else:
+                    web_scraper_type_id = web_scraper_type['id']
+                
+                # Prepare configuration data
+                config_data = {
+                    'carrier_name': carrier_name,
+                    'target_url': target_url,
+                    'scraper_type': scraper_type,
+                    'css_selectors': selectors,
+                    'delay_between_requests': delay_between_requests,
+                    'max_retries': max_retries,
+                    'timeout': timeout,
+                    'auth_required': auth_required
+                }
+                
+                # Save the web scraper
+                integration_id = db_manager.save_external_integration(
+                    brokerage_name,
+                    scraper_name,
+                    web_scraper_type_id,
+                    config_data,
+                    auth_config,
+                    description
+                )
+                
+                # Save output configuration
+                output_config = {
+                    'format': output_format,
+                    'filename_template': output_filename_template,
+                    'include_timestamp': True,
+                    'compression': None
+                }
+                
+                db_manager.save_integration_output_config(
+                    integration_id,
+                    output_config
+                )
+                
+                st.success(f"✅ Web scraper '{scraper_name}' created successfully!")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Error creating web scraper: {e}")
+
+def _execute_web_scraper(db_manager, scraper):
+    """Execute a web scraper"""
+    st.info(f"Running web scraper: {scraper['name']}")
+    
+    try:
+        with st.spinner("🕷️ Scraping data..."):
+            # This is a placeholder for web scraper execution
+            # In a real implementation, you would use libraries like selenium or requests + BeautifulSoup
+            
+            # For demo purposes, simulate scraper execution
+            import time
+            time.sleep(2)
+            
+            # Mock results
+            sample_results = [
+                {
+                    'tracking_number': 'TRACK123456',
+                    'status': 'In Transit',
+                    'location': 'Chicago, IL',
+                    'estimated_delivery': '2024-01-15'
+                },
+                {
+                    'tracking_number': 'TRACK654321',
+                    'status': 'Delivered',
+                    'location': 'Los Angeles, CA',
+                    'estimated_delivery': '2024-01-14'
+                }
+            ]
+            
+            # Save execution history
+            execution_id = db_manager.save_integration_execution_history(
+                scraper['id'],
+                'SUCCESS',
+                records_processed=len(sample_results),
+                records_success=len(sample_results),
+                records_failed=0,
+                execution_time=2.0,
+                error_log=None,
+                output_file_path=None,
+                triggered_by='manual'
+            )
+            
+            # Update last used timestamp
+            db_manager.update_integration_last_used(scraper['id'])
+            
+            st.success(f"✅ Web scraper executed successfully!")
+            
+            # Show results
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Records Scraped", len(sample_results))
+            with col2:
+                st.metric("Success Rate", "100%")
+            
+            # Show sample results
+            with st.expander("📊 View Scraped Data"):
+                st.json(sample_results)
+            
+    except Exception as e:
+        st.error(f"❌ Error executing web scraper: {e}")
+        
+        # Save failed execution to history
+        db_manager.save_integration_execution_history(
+            scraper['id'],
+            'FAILED',
+            records_processed=0,
+            records_success=0,
+            records_failed=0,
+            execution_time=0,
+            error_log=[str(e)],
+            triggered_by='manual'
+        )

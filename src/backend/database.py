@@ -258,7 +258,8 @@ class DatabaseManager:
                 ('customs_api', 'Customs API', 'Customs and border documentation API', '{"api_type": "rest", "auth_type": "certificate", "rate_limit": 50}'),
                 ('warehouse_api', 'Warehouse API', 'Warehouse management system integration', '{"api_type": "rest", "auth_type": "basic", "rate_limit": 300}'),
                 ('edi_integration', 'EDI Integration', 'Electronic Data Interchange for freight documents', '{"protocol": "edi", "standards": ["x12", "edifact"], "rate_limit": 1000}'),
-                ('custom_integration', 'Custom Integration', 'Custom API or data source integration', '{"api_type": "configurable", "auth_type": "configurable", "rate_limit": 100}')
+                ('custom_integration', 'Custom Integration', 'Custom API or data source integration', '{"api_type": "configurable", "auth_type": "configurable", "rate_limit": 100}'),
+                ('web_scraper', 'Web Scraper', 'Automated web scraping for carrier data extraction', '{"scraper_type": "web", "auth_type": "form_login", "rate_limit": 50, "delay_seconds": 5}')
         ''')
         
         conn.commit()
@@ -903,24 +904,54 @@ class DatabaseManager:
             raise
         return key 
 
+    def _encrypt_credentials(self, credentials_json):
+        """Encrypt credentials JSON string"""
+        try:
+            key = self._get_encryption_key()
+            if not key:
+                raise ValueError("Encryption key not available")
+            
+            f = Fernet(key)
+            return f.encrypt(credentials_json.encode())
+        except Exception as e:
+            logging.error(f"Error encrypting credentials: {e}")
+            raise
+
+    def _decrypt_credentials(self, encrypted_credentials):
+        """Decrypt credentials and return as dictionary"""
+        try:
+            key = self._get_encryption_key()
+            if not key:
+                raise ValueError("Encryption key not available")
+            
+            f = Fernet(key)
+            decrypted_json = f.decrypt(encrypted_credentials).decode()
+            return json.loads(decrypted_json)
+        except Exception as e:
+            logging.warning(f"Could not decrypt credentials: {e}")
+            return {}
+
     def save_brokerage_configuration(self, brokerage_name, configuration_name, field_mappings, api_credentials, file_headers=None, description=None):
-        """Save or update brokerage configuration with versioning"""
+        """Save brokerage-specific configuration with robust error handling"""
         # Input validation
-        if not brokerage_name or not isinstance(brokerage_name, str):
-            raise ValueError("Invalid brokerage name")
-        if not configuration_name or not isinstance(configuration_name, str):
-            raise ValueError("Invalid configuration name")
-        if len(brokerage_name) > 100:
-            raise ValueError("Brokerage name too long")
-        if field_mappings is None or not isinstance(field_mappings, dict):
-            raise ValueError("Invalid field mappings")
-        if not api_credentials or not isinstance(api_credentials, dict):
-            raise ValueError("Invalid API credentials")
+        if not isinstance(brokerage_name, str) or not brokerage_name.strip():
+            raise ValueError("Brokerage name must be a non-empty string")
+        if not isinstance(configuration_name, str) or not configuration_name.strip():
+            raise ValueError("Configuration name must be a non-empty string")
+        if not isinstance(field_mappings, dict):
+            raise ValueError("Field mappings must be a dictionary")
+        if not isinstance(api_credentials, dict):
+            raise ValueError("API credentials must be a dictionary")
         
         # Sanitize names
         import re
         safe_brokerage_name = re.sub(r'[^\w\s-]', '', brokerage_name.strip())[:100]
         safe_configuration_name = re.sub(r'[^\w\s-]', '', configuration_name.strip())[:100]
+        
+        # Validate API credentials structure
+        required_fields = ['api_key', 'api_endpoint', 'api_secret', 'api_username']
+        if not any(field in api_credentials for field in required_fields):
+            raise ValueError("API credentials must contain at least one of: api_key, api_endpoint, api_secret, api_username")
         
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -931,68 +962,65 @@ class DatabaseManager:
             f = Fernet(key)
             
             # Validate API credentials structure before encrypting
-            required_cred_fields = ['base_url', 'api_key']
-            if not all(field in api_credentials for field in required_cred_fields):
-                raise ValueError("Missing required API credential fields")
+            if not isinstance(api_credentials, dict):
+                raise ValueError("API credentials must be a dictionary")
             
             encrypted_credentials = f.encrypt(json.dumps(api_credentials).encode())
             
-            # Check if configuration exists
+            # Check if configuration already exists
             cursor.execute('''
-                SELECT id, field_mappings, version FROM brokerage_configurations 
+                SELECT id FROM brokerage_configurations 
                 WHERE brokerage_name = ? AND configuration_name = ?
             ''', (safe_brokerage_name, safe_configuration_name))
             
-            existing = cursor.fetchone()
+            existing_config = cursor.fetchone()
             
-            if existing:
-                # Update existing configuration (no version increment - update in place)
-                config_id, old_mappings, current_version = existing
-                
+            if existing_config:
+                # Update existing configuration
+                config_id = existing_config[0]
                 cursor.execute('''
                     UPDATE brokerage_configurations 
                     SET field_mappings = ?, api_credentials = ?, file_headers = ?, 
-                        updated_at = ?, last_used_at = ?, description = ?
+                        description = ?, updated_at = ?, last_used_at = ?
                     WHERE id = ?
                 ''', (
-                    json.dumps(field_mappings), encrypted_credentials, 
+                    json.dumps(field_mappings), encrypted_credentials,
                     json.dumps(file_headers) if file_headers else None,
-                    datetime.now(), datetime.now(), description, config_id
+                    description, datetime.now(), datetime.now(), config_id
                 ))
                 
-                # Log configuration change
+                # Log the update
                 self._log_configuration_change(
-                    cursor, config_id, 'updated', 
-                    f"Configuration updated with new field mappings",
-                    old_mappings, json.dumps(field_mappings)
+                    cursor, config_id, "UPDATE", 
+                    f"Configuration '{safe_configuration_name}' updated",
+                    None, None
                 )
-                
             else:
                 # Create new configuration
                 cursor.execute('''
                     INSERT INTO brokerage_configurations 
                     (brokerage_name, configuration_name, field_mappings, api_credentials, 
-                     file_headers, last_used_at, description)
+                     file_headers, description, last_used_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     safe_brokerage_name, safe_configuration_name, 
                     json.dumps(field_mappings), encrypted_credentials,
                     json.dumps(file_headers) if file_headers else None,
-                    datetime.now(), description
+                    description, datetime.now()
                 ))
                 
                 config_id = cursor.lastrowid
                 
-                # Log configuration creation
+                # Log the creation
                 self._log_configuration_change(
-                    cursor, config_id, 'created',
-                    "New configuration created",
-                    None, json.dumps(field_mappings)
+                    cursor, config_id, "CREATE", 
+                    f"Configuration '{safe_configuration_name}' created",
+                    None, None
                 )
             
             conn.commit()
             return config_id
-            
+        
         except Exception as e:
             conn.rollback()
             logging.error(f"Error saving brokerage configuration: {e}")
@@ -1850,143 +1878,149 @@ class DatabaseManager:
             ORDER BY type_display_name
         ''')
         
-        results = cursor.fetchall()
-        conn.close()
-        
-        return [
-            {
+        types = []
+        for row in cursor.fetchall():
+            types.append({
                 'id': row[0],
                 'type_name': row[1],
                 'type_display_name': row[2],
                 'description': row[3],
-                'default_config': json.loads(row[4]) if row[4] else {},
+                'default_config': row[4],
                 'is_active': row[5]
-            }
-            for row in results
-        ]
-    
-    def save_external_integration(self, brokerage_name, integration_name, integration_type_id, 
-                                config_data, auth_credentials=None, description=None, created_by=None):
-        """Save or update an external integration"""
-        # Input validation
-        if not brokerage_name or not isinstance(brokerage_name, str):
-            raise ValueError("Invalid brokerage name")
-        if not integration_name or not isinstance(integration_name, str):
-            raise ValueError("Invalid integration name")
-        if not integration_type_id or not isinstance(integration_type_id, int):
-            raise ValueError("Invalid integration type ID")
-        if not config_data or not isinstance(config_data, dict):
-            raise ValueError("Invalid configuration data")
+            })
         
-        # Sanitize names
-        import re
-        safe_brokerage_name = re.sub(r'[^\w\s-]', '', brokerage_name.strip())[:100]
-        safe_integration_name = re.sub(r'[^\w\s-]', '', integration_name.strip())[:100]
-        
+        conn.close()
+        return types
+
+    def save_integration_type(self, type_name, type_display_name, description, default_config=None):
+        """Save a new integration type"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         try:
-            # Encrypt auth credentials if provided
-            encrypted_credentials = None
-            if auth_credentials:
-                key = self._get_encryption_key()
-                f = Fernet(key)
-                encrypted_credentials = f.encrypt(json.dumps(auth_credentials).encode())
+            cursor.execute('''
+                INSERT INTO integration_types (type_name, type_display_name, description, default_config)
+                VALUES (?, ?, ?, ?)
+            ''', (type_name, type_display_name, description, default_config))
             
-            # Check if integration exists
+            integration_type_id = cursor.lastrowid
+            conn.commit()
+            
+            logging.info(f"Integration type '{type_name}' saved successfully")
+            return integration_type_id
+            
+        except sqlite3.IntegrityError:
+            logging.warning(f"Integration type '{type_name}' already exists")
+            # Get existing type ID
+            cursor.execute('''
+                SELECT id FROM integration_types WHERE type_name = ?
+            ''', (type_name,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+        except Exception as e:
+            logging.error(f"Error saving integration type: {e}")
+            return None
+        finally:
+            conn.close()
+
+    def save_external_integration(self, brokerage_name, integration_name, integration_type_id, 
+                                config_data, auth_credentials=None, description=None, created_by=None):
+        """Save external integration configuration"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # Convert config_data to JSON string
+            config_json = json.dumps(config_data)
+            
+            # Encrypt auth credentials if provided
+            auth_json = None
+            if auth_credentials:
+                auth_json = self._encrypt_credentials(json.dumps(auth_credentials))
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO external_integrations 
+                (brokerage_name, integration_name, integration_type_id, description, config_data, 
+                 auth_credentials, created_by, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (brokerage_name, integration_name, integration_type_id, description, 
+                  config_json, auth_json, created_by))
+            
+            integration_id = cursor.lastrowid
+            conn.commit()
+            
+            logging.info(f"External integration '{integration_name}' saved for brokerage '{brokerage_name}'")
+            return integration_id
+            
+        except sqlite3.IntegrityError as e:
+            logging.warning(f"Duplicate integration name: {e}")
+            # Update existing integration
+            cursor.execute('''
+                UPDATE external_integrations 
+                SET integration_type_id = ?, description = ?, config_data = ?, 
+                    auth_credentials = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE brokerage_name = ? AND integration_name = ?
+            ''', (integration_type_id, description, config_json, auth_json, 
+                  brokerage_name, integration_name))
+            
+            # Get the existing integration ID
             cursor.execute('''
                 SELECT id FROM external_integrations 
                 WHERE brokerage_name = ? AND integration_name = ?
-            ''', (safe_brokerage_name, safe_integration_name))
+            ''', (brokerage_name, integration_name))
             
-            existing = cursor.fetchone()
-            
-            if existing:
-                # Update existing integration
-                integration_id = existing[0]
-                cursor.execute('''
-                    UPDATE external_integrations 
-                    SET integration_type_id = ?, config_data = ?, auth_credentials = ?, 
-                        description = ?, updated_at = ?, last_used_at = ?
-                    WHERE id = ?
-                ''', (
-                    integration_type_id, json.dumps(config_data), encrypted_credentials,
-                    description, datetime.now(), datetime.now(), integration_id
-                ))
-            else:
-                # Create new integration
-                cursor.execute('''
-                    INSERT INTO external_integrations 
-                    (brokerage_name, integration_name, integration_type_id, config_data, 
-                     auth_credentials, description, last_used_at, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    safe_brokerage_name, safe_integration_name, integration_type_id,
-                    json.dumps(config_data), encrypted_credentials, description,
-                    datetime.now(), created_by
-                ))
-                integration_id = cursor.lastrowid
+            result = cursor.fetchone()
+            integration_id = result[0] if result else None
             
             conn.commit()
             return integration_id
             
         except Exception as e:
-            conn.rollback()
             logging.error(f"Error saving external integration: {e}")
-            raise
+            return None
         finally:
             conn.close()
-    
+
     def get_external_integrations(self, brokerage_name):
         """Get all external integrations for a brokerage"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT ei.id, ei.integration_name, ei.description, ei.config_data, 
-                   ei.auth_credentials, ei.is_active, ei.created_at, ei.updated_at, 
-                   ei.last_used_at, ei.created_by,
+            SELECT ei.id, ei.brokerage_name, ei.integration_name, ei.integration_type_id,
+                   ei.description, ei.config_data, ei.auth_credentials, ei.is_active,
+                   ei.created_at, ei.updated_at, ei.last_used_at, ei.created_by,
                    it.type_name, it.type_display_name, it.description as type_description
             FROM external_integrations ei
             JOIN integration_types it ON ei.integration_type_id = it.id
             WHERE ei.brokerage_name = ? AND ei.is_active = 1
-            ORDER BY ei.last_used_at DESC, ei.updated_at DESC
+            ORDER BY ei.integration_name
         ''', (brokerage_name,))
         
-        results = cursor.fetchall()
-        conn.close()
-        
         integrations = []
-        for row in results:
-            integration_id, name, desc, config, creds, is_active, created, updated, last_used, created_by, type_name, type_display, type_desc = row
-            
-            # Decrypt auth credentials if present
-            decrypted_credentials = None
-            if creds:
-                try:
-                    key = self._get_encryption_key()
-                    f = Fernet(key)
-                    decrypted_credentials = json.loads(f.decrypt(creds).decode())
-                except Exception as e:
-                    logging.warning(f"Could not decrypt credentials for integration {name}: {e}")
+        for row in cursor.fetchall():
+            config_data = json.loads(row[5]) if row[5] else {}
+            auth_credentials = self._decrypt_credentials(row[6]) if row[6] else {}
             
             integrations.append({
-                'id': integration_id,
-                'name': name,
-                'description': desc,
-                'config_data': json.loads(config),
-                'auth_credentials': decrypted_credentials,
-                'is_active': is_active,
-                'created_at': created,
-                'updated_at': updated,
-                'last_used_at': last_used,
-                'created_by': created_by,
-                'type_name': type_name,
-                'type_display_name': type_display,
-                'type_description': type_desc
+                'id': row[0],
+                'brokerage_name': row[1],
+                'name': row[2],
+                'integration_type_id': row[3],
+                'description': row[4],
+                'config_data': config_data,
+                'auth_credentials': auth_credentials,
+                'is_active': row[7],
+                'created_at': row[8],
+                'updated_at': row[9],
+                'last_used_at': row[10],
+                'created_by': row[11],
+                'type_name': row[12],
+                'type_display_name': row[13],
+                'type_description': row[14]
             })
         
+        conn.close()
         return integrations
     
     def get_external_integration(self, integration_id):
