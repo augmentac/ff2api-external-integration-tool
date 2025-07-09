@@ -491,13 +491,16 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     
     # Extract PRO numbers and carriers
     pro_numbers = df[pro_column].dropna().astype(str).tolist()
-    carriers = df[carrier_column].dropna().astype(str).tolist() if carrier_column else []
     
-    # Ensure carriers list matches PRO numbers length
-    if carrier_column and len(carriers) < len(pro_numbers):
-        # Pad with None values
-        carriers.extend([None] * (len(pro_numbers) - len(carriers)))
-    elif not carrier_column:
+    # Get carrier names while preserving alignment with PRO numbers
+    if carrier_column:
+        # Get the indices of non-null PRO numbers to maintain alignment
+        pro_indices = df[pro_column].dropna().index
+        # Extract carrier names for the same indices, filling NaN with None
+        carriers = df.loc[pro_indices, carrier_column].fillna('').astype(str).tolist()
+        # Convert empty strings to None for proper handling
+        carriers = [carrier if carrier.strip() else None for carrier in carriers]
+    else:
         carriers = [None] * len(pro_numbers)
     
     # Initialize tracking client
