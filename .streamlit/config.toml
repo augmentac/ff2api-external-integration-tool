@@ -6,7 +6,7 @@ showWarningOnDirectExecution = false
 [server]
 # Server configuration
 headless = true
-enableCORS = false
+enableCORS = true
 enableXsrfProtection = true
 maxUploadSize = 200
 maxMessageSize = 200
