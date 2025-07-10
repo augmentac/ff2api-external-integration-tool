@@ -533,6 +533,28 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
             
         st.info(f"🚀 Using {system_name} for tracking")
         
+        # Add system diagnostic info
+        with st.expander("🔍 System Diagnostic Info", expanded=False):
+            st.write(f"**System Selected:** {system_name}")
+            st.write(f"**Barrier-Breaking Available:** {BARRIER_BREAKING_AVAILABLE}")
+            st.write(f"**Enhanced System Available:** {EnhancedLTLTrackingClient is not None}")
+            st.write(f"**Method:** {'track_single_shipment' if use_single_shipment_method else 'track_shipment'}")
+            
+            # Show system capabilities
+            if BARRIER_BREAKING_AVAILABLE:
+                st.write("**Capabilities:**")
+                st.write("- ✅ Apple Silicon ARM64 CPU Architecture (Estes Express)")
+                st.write("- ✅ CloudFlare Protection + TLS Fingerprinting (FedEx Freight)")
+                st.write("- ✅ Browser Detection and Anti-Scraping (All Carriers)")
+                st.write("- ✅ Advanced JavaScript Execution")
+                st.write("- ✅ Multi-layer Fallback System")
+            else:
+                st.write("**Capabilities:**")
+                st.write("- ✅ Zero-cost anti-scraping methods")
+                st.write("- ✅ Legacy tracking fallback")
+                st.write("- ⚠️ Limited by basic dependencies")
+                st.write("- ⚠️ No advanced browser automation")
+        
     except Exception as e:
         st.error(f"❌ Failed to initialize tracking system: {str(e)}")
         # Create failed results for all PROs
