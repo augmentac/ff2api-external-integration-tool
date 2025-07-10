@@ -532,26 +532,23 @@ def _render_results_step():
 def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     """Process PRO tracking for the uploaded file"""
     
-    pro_column = mappings['pro_column']
-    carrier_column = mappings.get('carrier_column')
+    # Extract PRO numbers and carriers from the dataframe
+    pro_numbers = []
+    carriers = []
     
-    # Get processing options
-    delay = st.session_state.get('pro_tracking_delay', 2)
-    max_retries = st.session_state.get('pro_tracking_retries', 2)
+    for _, row in df.iterrows():
+        pro_number = str(row.get(mappings.get('pro_number', ''), '')).strip()
+        carrier = str(row.get(mappings.get('carrier', ''), '')).strip()
+        
+        if pro_number and pro_number.lower() not in ['', 'nan', 'none']:
+            pro_numbers.append(pro_number)
+            carriers.append(carrier if carrier and carrier.lower() not in ['', 'nan', 'none'] else None)
     
-    # Extract PRO numbers and carriers
-    pro_numbers = df[pro_column].dropna().astype(str).tolist()
+    if not pro_numbers:
+        st.error("❌ No valid PRO numbers found in the uploaded file")
+        return
     
-    # Get carrier names while preserving alignment with PRO numbers
-    if carrier_column:
-        # Get the indices of non-null PRO numbers to maintain alignment
-        pro_indices = df[pro_column].dropna().index
-        # Extract carrier names for the same indices, filling NaN with None
-        carriers = df.loc[pro_indices, carrier_column].fillna('').astype(str).tolist()
-        # Convert empty strings to None for proper handling
-        carriers = [carrier if carrier.strip() else None for carrier in carriers]
-    else:
-        carriers = [None] * len(pro_numbers)
+    st.success(f"✅ Found {len(pro_numbers)} PRO numbers to track")
     
     # Initialize tracking system with fallback - prioritize cloud-compatible systems
     tracking_client = None
@@ -559,12 +556,30 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     use_single_shipment_method = False
     
     # Detect cloud environment
-    is_cloud = (
-        bool(os.environ.get('STREAMLIT_CLOUD', False)) or
-        bool(os.environ.get('DYNO', False)) or
-        bool(os.environ.get('HEROKU', False)) or
-        'streamlit' in os.environ.get('HOSTNAME', '').lower()
-    )
+    def detect_cloud_environment() -> bool:
+        """Detect if we're running in a cloud environment"""
+        cloud_indicators = [
+            'STREAMLIT_CLOUD',
+            'HEROKU',
+            'DYNO',
+            'RAILWAY',
+            'VERCEL',
+            'NETLIFY',
+            'AWS_LAMBDA',
+            'GOOGLE_CLOUD_RUN'
+        ]
+        
+        for indicator in cloud_indicators:
+            if os.environ.get(indicator):
+                return True
+        
+        hostname = os.environ.get('HOSTNAME', '').lower()
+        if any(pattern in hostname for pattern in ['streamlit', 'heroku', 'railway', 'vercel']):
+            return True
+        
+        return False
+    
+    is_cloud = detect_cloud_environment()
     
     try:
         # Priority 1: Cloud-compatible systems (best for cloud deployment)
@@ -685,28 +700,43 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                     result_dict = None
                     
                     # Use the correct method based on the tracking system type
-                    if "Cloud" in system_name:
-                        # Cloud systems use track_shipment(pro_number, carrier)
+                    if system_name == "Working Cloud Tracking System":
+                        # Working Cloud Tracker uses track_shipment(tracking_number, carrier)
                         result_dict = await tracking_client.track_shipment(pro_number, carrier_name or "Auto-Detect")
-                    elif system_name == "Barrier-Breaking System" and hasattr(tracking_client, 'track_single_shipment'):
-                        # Barrier-breaking system uses track_single_shipment
-                        result_dict = await tracking_client.track_single_shipment(pro_number)
-                    elif hasattr(tracking_client, 'track_shipment'):
-                        # Enhanced/Legacy systems - check if they need carrier parameter
-                        if system_name == "Enhanced Zero-Cost System":
-                            result_dict = await tracking_client.track_shipment(pro_number, carrier_name or "Auto-Detect")
-                        else:
-                            # Legacy system - try with just PRO number
-                            result_dict = await tracking_client.track_shipment(pro_number)
+                    elif system_name == "Improved Cloud Tracking System":
+                        # Improved Cloud Tracker uses track_shipment(tracking_number, carrier)
+                        result_dict = await tracking_client.track_shipment(pro_number, carrier_name or "Auto-Detect")
+                    elif system_name == "Cloud Compatible System":
+                        # Cloud Compatible Tracker uses track_shipment(tracking_number, carrier)
+                        result_dict = await tracking_client.track_shipment(pro_number, carrier_name or "Auto-Detect")
+                    elif system_name == "Barrier-Breaking System":
+                        # Barrier-breaking system uses track_single_shipment(tracking_number, carrier)
+                        result_dict = await tracking_client.track_single_shipment(pro_number, carrier_name)
+                    elif system_name == "Enhanced Zero-Cost System":
+                        # Enhanced system uses track_shipment(pro_number, carrier)
+                        result_dict = await tracking_client.track_shipment(pro_number, carrier_name)
+                    elif system_name == "Legacy System":
+                        # Legacy system uses track_pro_number(pro_number) - synchronous
+                        result_dict = tracking_client.track_pro_number(pro_number)
+                        # Convert TrackingResult to dict format
+                        if hasattr(result_dict, 'scrape_success'):
+                            result_dict = {
+                                'success': result_dict.scrape_success,
+                                'status': result_dict.tracking_status or 'No status available',
+                                'location': result_dict.tracking_location or 'No location available',
+                                'timestamp': result_dict.tracking_timestamp or 'No timestamp available',
+                                'error': result_dict.error_message,
+                                'carrier': result_dict.carrier_name
+                            }
                     else:
-                        raise AttributeError(f"No suitable tracking method found for {system_name}")
+                        raise AttributeError(f"Unknown tracking system: {system_name}")
                     
                     # Use provided carrier name if available, otherwise use detected carrier name
                     final_carrier_name = carrier_name or result_dict.get('carrier', 'Unknown')
                     
                     # Create result record based on system type
-                    if "Cloud" in system_name or system_name == "Barrier-Breaking System":
-                        # Cloud and Barrier-breaking systems use similar response format
+                    if system_name in ["Working Cloud Tracking System", "Improved Cloud Tracking System", "Cloud Compatible System", "Barrier-Breaking System"]:
+                        # Modern systems use consistent response format
                         result = {
                             'pro_number': pro_number,
                             'carrier': final_carrier_name,
