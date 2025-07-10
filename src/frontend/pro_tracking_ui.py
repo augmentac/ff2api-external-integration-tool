@@ -532,23 +532,58 @@ def _render_results_step():
 def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     """Process PRO tracking for the uploaded file"""
     
-    # Extract PRO numbers and carriers from the dataframe
+    # Extract PRO numbers and carriers from the dataframe using correct mapping keys
     pro_numbers = []
     carriers = []
     
+    # Get the column names from mappings
+    pro_column = mappings.get('pro_column')
+    carrier_column = mappings.get('carrier_column')
+    
+    if not pro_column:
+        st.error("❌ No PRO column specified in mappings")
+        return
+    
+    # Extract data from the dataframe
     for _, row in df.iterrows():
-        pro_number = str(row.get(mappings.get('pro_number', ''), '')).strip()
-        carrier = str(row.get(mappings.get('carrier', ''), '')).strip()
+        # Get PRO number from the specified column
+        pro_number = str(row.get(pro_column, '')).strip()
         
-        if pro_number and pro_number.lower() not in ['', 'nan', 'none']:
+        # Get carrier from the specified column (if provided)
+        if carrier_column:
+            carrier = str(row.get(carrier_column, '')).strip()
+            carrier = carrier if carrier and carrier.lower() not in ['', 'nan', 'none', 'null'] else None
+        else:
+            carrier = None
+        
+        # Only include valid PRO numbers
+        if pro_number and pro_number.lower() not in ['', 'nan', 'none', 'null']:
             pro_numbers.append(pro_number)
-            carriers.append(carrier if carrier and carrier.lower() not in ['', 'nan', 'none'] else None)
+            carriers.append(carrier)
     
     if not pro_numbers:
         st.error("❌ No valid PRO numbers found in the uploaded file")
+        st.info(f"Checked column: '{pro_column}' - found {len(df)} rows but no valid PRO numbers")
+        
+        # Show sample data for debugging
+        if len(df) > 0:
+            st.write("**Sample data from your file:**")
+            sample_data = df[[pro_column]].head(3)
+            if carrier_column:
+                sample_data = df[[pro_column, carrier_column]].head(3)
+            st.dataframe(sample_data)
         return
     
     st.success(f"✅ Found {len(pro_numbers)} PRO numbers to track")
+    
+    # Show sample of what will be tracked
+    st.write("**Sample PRO numbers to track:**")
+    for i, (pro, carrier) in enumerate(zip(pro_numbers[:3], carriers[:3]), 1):
+        carrier_text = f" → {carrier}" if carrier else " → Auto-detect carrier"
+        st.write(f"{i}. `{pro}`{carrier_text}")
+    
+    if len(pro_numbers) > 3:
+        st.write(f"... and {len(pro_numbers) - 3} more PRO numbers")
     
     # Initialize tracking system with fallback - prioritize cloud-compatible systems
     tracking_client = None
