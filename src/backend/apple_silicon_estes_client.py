@@ -81,7 +81,6 @@ class AppleSiliconEstesClient:
             chrome_options.add_argument('--disable-extensions')
             chrome_options.add_argument('--disable-plugins')
             chrome_options.add_argument('--disable-images')
-            chrome_options.add_argument('--disable-javascript')
             chrome_options.add_argument('--disable-web-security')
             chrome_options.add_argument('--allow-running-insecure-content')
             chrome_options.add_argument('--ignore-certificate-errors')
@@ -175,11 +174,11 @@ class AppleSiliconEstesClient:
                 logger.warning(f"Failed to execute stealth script: {e}")
     
     async def track_with_playwright(self, tracking_number: str) -> Dict:
-        """Track using Playwright (ARM64 compatible)"""
+        """Track using Playwright (ARM64 compatible) with Angular Material form handling"""
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(
-                    headless=True,
+                    headless=False,  # Show browser for debugging
                     args=[
                         '--no-sandbox',
                         '--disable-dev-shm-usage',
@@ -195,89 +194,197 @@ class AppleSiliconEstesClient:
                 
                 page = await context.new_page()
                 
-                # Try main tracking page
+                # Navigate to tracking page
+                logger.info("🌐 Navigating to Estes tracking page...")
                 await page.goto('https://www.estes-express.com/myestes/shipment-tracking/')
+                
+                # Wait for Angular app to load
+                logger.info("⏳ Waiting for Angular app to load...")
                 await page.wait_for_load_state('networkidle')
+                await page.wait_for_timeout(5000)  # Additional wait for Angular
                 
-                # Look for tracking input
-                tracking_input = await page.query_selector('input[name*="track"], input[id*="track"], input[placeholder*="track"]')
-                if tracking_input:
-                    await tracking_input.fill(tracking_number)
-                    
-                    # Look for submit button
-                    submit_button = await page.query_selector('button[type="submit"], input[type="submit"], button:has-text("Track")')
-                    if submit_button:
-                        await submit_button.click()
-                        await page.wait_for_load_state('networkidle')
-                        
-                        # Parse results
-                        content = await page.content()
-                        return self.parse_tracking_results(content, tracking_number)
+                # Look for the Angular Material form
+                logger.info("🔍 Looking for Angular Material tracking form...")
                 
+                # Try to find the form container first
+                form_container = await page.query_selector('#shipmentTrackingFormContainer')
+                if not form_container:
+                    logger.warning("❌ Form container not found")
+                    await browser.close()
+                    return {'success': False, 'error': 'Angular form container not found'}
+                
+                logger.info("✅ Found form container")
+                
+                # Look for the textarea within the Angular Material form
+                textarea_selectors = [
+                    'textarea[placeholder*="track"]',
+                    'textarea[placeholder*="number"]',
+                    'textarea[name*="track"]',
+                    'textarea[id*="track"]',
+                    'textarea',  # Fallback to any textarea
+                    'mat-form-field textarea',
+                    '.mat-mdc-form-field textarea'
+                ]
+                
+                tracking_textarea = None
+                for selector in textarea_selectors:
+                    try:
+                        tracking_textarea = await page.query_selector(selector)
+                        if tracking_textarea and await tracking_textarea.is_visible():
+                            logger.info(f"✅ Found tracking textarea with selector: {selector}")
+                            break
+                    except Exception as e:
+                        logger.debug(f"Selector {selector} failed: {e}")
+                        continue
+                
+                if not tracking_textarea:
+                    logger.warning("❌ No tracking textarea found")
+                    await browser.close()
+                    return {'success': False, 'error': 'Tracking textarea not found in Angular form'}
+                
+                # Enter the tracking number
+                logger.info(f"📝 Entering tracking number: {tracking_number}")
+                await tracking_textarea.click()
+                await tracking_textarea.fill(tracking_number)
+                
+                # Look for the submit button
+                logger.info("🔍 Looking for submit button...")
+                submit_button = await page.query_selector('#shipmentTrackingSubmitButton')
+                if not submit_button:
+                    # Try alternative selectors
+                    submit_selectors = [
+                        'button[type="submit"]',
+                        'button:has-text("Search")',
+                        'button:has-text("Track")',
+                        '.btn-primary'
+                    ]
+                    for selector in submit_selectors:
+                        submit_button = await page.query_selector(selector)
+                        if submit_button:
+                            logger.info(f"✅ Found submit button with selector: {selector}")
+                            break
+                
+                if not submit_button:
+                    logger.warning("❌ Submit button not found")
+                    await browser.close()
+                    return {'success': False, 'error': 'Submit button not found'}
+                
+                # Click the submit button
+                logger.info("🚀 Clicking submit button...")
+                await submit_button.click()
+                
+                # Wait for results to load
+                logger.info("⏳ Waiting for tracking results...")
+                await page.wait_for_load_state('networkidle')
+                await page.wait_for_timeout(5000)  # Wait for Angular to process
+                
+                # Parse results
+                content = await page.content()
                 await browser.close()
-                return {'success': False, 'error': 'Could not find tracking form'}
+                
+                return self.parse_tracking_results(content, tracking_number)
                 
         except Exception as e:
             logger.error(f"Playwright tracking failed: {e}")
             return {'success': False, 'error': str(e)}
     
     def track_with_selenium(self, tracking_number: str) -> Dict:
-        """Track using Selenium with Apple Silicon ChromeDriver"""
+        """Track using Selenium with Apple Silicon ChromeDriver and Angular Material form handling"""
         driver = None
         try:
             driver = self.get_apple_silicon_chrome_driver()
             
-            # Try main tracking page
+            # Navigate to tracking page
+            logger.info("🌐 Navigating to Estes tracking page...")
             driver.get('https://www.estes-express.com/myestes/shipment-tracking/')
-            time.sleep(3)
             
-            # Look for tracking input
-            tracking_inputs = [
-                By.NAME, 'trackingNumber',
-                By.ID, 'trackingNumber',
-                By.CSS_SELECTOR, 'input[name*="track"]',
-                By.CSS_SELECTOR, 'input[id*="track"]',
-                By.CSS_SELECTOR, 'input[placeholder*="track"]'
+            # Wait for Angular app to load
+            logger.info("⏳ Waiting for Angular app to load...")
+            time.sleep(8)  # Give Angular time to initialize
+            
+            # Look for the Angular Material form
+            logger.info("🔍 Looking for Angular Material tracking form...")
+            
+            # Try to find the form container first
+            try:
+                form_container = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.ID, 'shipmentTrackingFormContainer'))
+                )
+                logger.info("✅ Found form container")
+            except:
+                logger.warning("❌ Form container not found")
+                return {'success': False, 'error': 'Angular form container not found'}
+            
+            # Look for the textarea within the Angular Material form
+            textarea_selectors = [
+                (By.CSS_SELECTOR, 'textarea[placeholder*="track"]'),
+                (By.CSS_SELECTOR, 'textarea[placeholder*="number"]'),
+                (By.CSS_SELECTOR, 'textarea[name*="track"]'),
+                (By.CSS_SELECTOR, 'textarea[id*="track"]'),
+                (By.TAG_NAME, 'textarea'),  # Fallback to any textarea
+                (By.CSS_SELECTOR, 'mat-form-field textarea'),
+                (By.CSS_SELECTOR, '.mat-mdc-form-field textarea')
             ]
             
-            tracking_input = None
-            for by_method, selector in zip(tracking_inputs[::2], tracking_inputs[1::2]):
+            tracking_textarea = None
+            for by_method, selector in textarea_selectors:
                 try:
-                    tracking_input = WebDriverWait(driver, 5).until(
-                        EC.presence_of_element_located((by_method, selector))
+                    tracking_textarea = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((by_method, selector))
                     )
-                    break
+                    if tracking_textarea.is_displayed():
+                        logger.info(f"✅ Found tracking textarea with selector: {selector}")
+                        break
                 except:
                     continue
             
-            if tracking_input:
-                tracking_input.clear()
-                tracking_input.send_keys(tracking_number)
-                
-                # Look for submit button
+            if not tracking_textarea:
+                logger.warning("❌ No tracking textarea found")
+                return {'success': False, 'error': 'Tracking textarea not found in Angular form'}
+            
+            # Enter the tracking number
+            logger.info(f"📝 Entering tracking number: {tracking_number}")
+            tracking_textarea.click()
+            tracking_textarea.clear()
+            tracking_textarea.send_keys(tracking_number)
+            
+            # Look for the submit button
+            logger.info("🔍 Looking for submit button...")
+            submit_button = None
+            try:
+                submit_button = driver.find_element(By.ID, 'shipmentTrackingSubmitButton')
+                logger.info("✅ Found submit button by ID")
+            except:
+                # Try alternative selectors
                 submit_selectors = [
                     (By.CSS_SELECTOR, 'button[type="submit"]'),
-                    (By.CSS_SELECTOR, 'input[type="submit"]'),
+                    (By.XPATH, '//button[contains(text(), "Search")]'),
                     (By.XPATH, '//button[contains(text(), "Track")]'),
-                    (By.XPATH, '//input[contains(@value, "Track")]')
+                    (By.CSS_SELECTOR, '.btn-primary')
                 ]
-                
                 for by_method, selector in submit_selectors:
                     try:
                         submit_button = driver.find_element(by_method, selector)
-                        submit_button.click()
+                        logger.info(f"✅ Found submit button with selector: {selector}")
                         break
                     except:
                         continue
-                
-                # Wait for results
-                time.sleep(5)
-                
-                # Parse results
-                page_source = driver.page_source
-                return self.parse_tracking_results(page_source, tracking_number)
             
-            return {'success': False, 'error': 'Could not find tracking form'}
+            if not submit_button:
+                logger.warning("❌ Submit button not found")
+                return {'success': False, 'error': 'Submit button not found'}
+            
+            # Click the submit button
+            logger.info("🚀 Clicking submit button...")
+            submit_button.click()
+            
+            # Wait for results to load
+            logger.info("⏳ Waiting for tracking results...")
+            time.sleep(8)  # Wait for Angular to process
+            
+            # Parse results
+            page_source = driver.page_source
+            return self.parse_tracking_results(page_source, tracking_number)
             
         except Exception as e:
             logger.error(f"Selenium tracking failed: {e}")
