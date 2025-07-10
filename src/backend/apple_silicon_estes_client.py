@@ -438,28 +438,96 @@ class AppleSiliconEstesClient:
     def parse_tracking_results(self, html_content: str, tracking_number: str) -> Dict:
         """Parse tracking results from HTML content"""
         try:
-            # Look for tracking information patterns
-            tracking_patterns = [
-                r'delivered|delivery|out for delivery|in transit|picked up|origin|destination',
-                r'status.*?:.*?([^<\n]+)',
-                r'location.*?:.*?([^<\n]+)',
-                r'date.*?:.*?([^<\n]+)',
-                r'time.*?:.*?([^<\n]+)'
+            # First, check if this is actually JavaScript code or HTML fragments
+            javascript_indicators = [
+                'gtm.js',
+                'getElementsByTagName',
+                'var f=d.',
+                'function(',
+                'window.',
+                'document.',
+                '.js',
+                'script',
+                '});',
+                'var ',
+                'let ',
+                'const ',
+                'function ',
+                'return ',
+                'if(',
+                'for(',
+                'while('
             ]
             
+            # Check if content contains JavaScript indicators
+            for indicator in javascript_indicators:
+                if indicator in html_content:
+                    logger.warning(f"Detected JavaScript code in response, rejecting: {indicator}")
+                    return {
+                        'success': False,
+                        'error': 'Response contains JavaScript code instead of tracking data',
+                        'tracking_number': tracking_number
+                    }
+            
+            # Check if content is mostly HTML tags
             import re
+            html_tag_count = len(re.findall(r'<[^>]+>', html_content))
+            if html_tag_count > 10 and len(html_content) < 1000:
+                logger.warning("Response appears to be HTML structure rather than tracking data")
+                return {
+                    'success': False,
+                    'error': 'Response contains HTML structure instead of tracking data',
+                    'tracking_number': tracking_number
+                }
+            
+            # Look for actual tracking information patterns with better validation
+            tracking_patterns = [
+                # More specific patterns that require context
+                r'(?:shipment|package|freight)\s+(?:delivered|delivery|out for delivery|in transit|picked up)',
+                r'(?:status|current status):\s*([^<\n]+)',
+                r'(?:location|current location):\s*([^<\n]+)',
+                r'(?:delivery date|delivered on):\s*([^<\n]+)',
+                r'(?:pickup date|picked up on):\s*([^<\n]+)'
+            ]
+            
             results = []
             for pattern in tracking_patterns:
                 matches = re.findall(pattern, html_content, re.IGNORECASE)
                 results.extend(matches)
             
-            if results:
+            # Also look for structured tracking data
+            structured_patterns = [
+                r'PRO\s*#?\s*' + re.escape(tracking_number) + r'.*?(?:delivered|in transit|picked up)',
+                r'tracking\s*#?\s*' + re.escape(tracking_number) + r'.*?(?:delivered|in transit|picked up)',
+                r'(?:delivered|in transit|picked up).*?' + re.escape(tracking_number)
+            ]
+            
+            for pattern in structured_patterns:
+                matches = re.findall(pattern, html_content, re.IGNORECASE)
+                results.extend(matches)
+            
+            # Validate results to ensure they're meaningful
+            valid_results = []
+            for result in results:
+                if isinstance(result, str):
+                    # Skip if it looks like code
+                    if any(code_indicator in result for code_indicator in ['var ', 'function', '.js', 'getElementsBy', 'document.']):
+                        continue
+                    # Skip if it's too short or too long
+                    if len(result) < 3 or len(result) > 200:
+                        continue
+                    # Skip if it contains suspicious characters
+                    if any(char in result for char in ['<', '>', '{', '}', ';', '()', 'var']):
+                        continue
+                    valid_results.append(result)
+            
+            if valid_results:
                 return {
                     'success': True,
                     'tracking_number': tracking_number,
                     'carrier': 'Estes Express',
-                    'status': results[0] if results else 'Unknown',
-                    'details': results,
+                    'status': valid_results[0] if valid_results else 'Unknown',
+                    'details': valid_results,
                     'raw_data': html_content[:1000]  # First 1000 chars for debugging
                 }
             
@@ -480,7 +548,7 @@ class AppleSiliconEstesClient:
             
             return {
                 'success': False,
-                'error': 'No tracking information found in response',
+                'error': 'No valid tracking information found in response',
                 'tracking_number': tracking_number
             }
             
