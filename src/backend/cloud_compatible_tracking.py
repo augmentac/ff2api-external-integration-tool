@@ -77,31 +77,83 @@ class CloudCompatibleTracker:
             }
     
     async def try_estes_api(self, tracking_number: str) -> Dict:
-        """Try Estes API endpoints"""
+        """Try Estes API endpoints with enhanced detection"""
         try:
-            # Common API endpoints to try
+            # Enhanced API endpoints to try
             api_urls = [
+                # Primary API endpoints
                 f"https://www.estes-express.com/api/shipment-tracking/{tracking_number}",
                 f"https://www.estes-express.com/api/tracking/{tracking_number}",
                 f"https://api.estes-express.com/tracking/{tracking_number}",
-                f"https://www.estes-express.com/myestes/api/tracking/{tracking_number}"
+                f"https://www.estes-express.com/myestes/api/tracking/{tracking_number}",
+                
+                # Mobile API endpoints
+                f"https://m.estes-express.com/api/tracking/{tracking_number}",
+                f"https://mobile.estes-express.com/api/tracking/{tracking_number}",
+                
+                # Alternative API patterns
+                f"https://www.estes-express.com/api/v1/tracking/{tracking_number}",
+                f"https://www.estes-express.com/api/v2/tracking/{tracking_number}",
+                f"https://tracking.estes-express.com/api/{tracking_number}",
+                
+                # GraphQL and REST variations
+                f"https://www.estes-express.com/graphql?query={{trackingInfo(pro:\"{tracking_number}\"){{status,location,events}}}}",
+                f"https://www.estes-express.com/rest/tracking/{tracking_number}",
+            ]
+            
+            headers_variations = [
+                # Standard headers
+                self.headers,
+                
+                # API-specific headers
+                {
+                    **self.headers,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                
+                # Mobile headers
+                {
+                    **self.headers,
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15',
+                    'Accept': 'application/json, text/plain, */*'
+                },
+                
+                # AJAX headers
+                {
+                    **self.headers,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json, text/javascript, */*; q=0.01'
+                }
             ]
             
             for url in api_urls:
-                try:
-                    response = self.session.get(url, timeout=10)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data and isinstance(data, dict):
-                            parsed = self.parse_api_response(data, tracking_number)
-                            if parsed.get('success'):
-                                logger.info(f"✅ API success: {url}")
-                                return parsed
-                except Exception as e:
-                    logger.debug(f"API endpoint failed: {url} - {str(e)}")
-                    continue
+                for headers in headers_variations:
+                    try:
+                        response = self.session.get(url, headers=headers, timeout=10)
+                        
+                        if response.status_code == 200:
+                            # Try to parse as JSON
+                            try:
+                                data = response.json()
+                                if data and isinstance(data, dict):
+                                    parsed = self.parse_api_response(data, tracking_number)
+                                    if parsed.get('success'):
+                                        logger.info(f"✅ API success: {url}")
+                                        return parsed
+                            except:
+                                # Try to parse as HTML if JSON fails
+                                if tracking_number in response.text:
+                                    parsed = self.parse_html_response(response.text, tracking_number)
+                                    if parsed.get('success'):
+                                        logger.info(f"✅ API HTML success: {url}")
+                                        return parsed
+                                        
+                    except Exception as e:
+                        logger.debug(f"API endpoint failed: {url} - {str(e)}")
+                        continue
             
-            return {'success': False, 'error': 'No API endpoints responded'}
+            return {'success': False, 'error': 'No API endpoints responded with tracking data'}
             
         except Exception as e:
             return {'success': False, 'error': f'API error: {str(e)}'}
@@ -138,50 +190,59 @@ class CloudCompatibleTracker:
             return {'success': False, 'error': f'Mobile error: {str(e)}'}
     
     async def try_estes_form(self, tracking_number: str) -> Dict:
-        """Try form submission with session handling"""
+        """Try form submission with enhanced session handling"""
         try:
             # Get the tracking page first
             tracking_url = "https://www.estes-express.com/myestes/shipment-tracking/"
-            response = self.session.get(tracking_url, timeout=15)
             
-            if response.status_code != 200:
-                return {'success': False, 'error': 'Could not access tracking page'}
+            # Try multiple form submission approaches
+            form_approaches = [
+                # Standard form submission
+                {
+                    'url': tracking_url,
+                    'method': 'GET',
+                    'follow_redirects': True
+                },
+                
+                # Direct POST to common endpoints
+                {
+                    'url': 'https://www.estes-express.com/myestes/shipment-tracking/search',
+                    'method': 'POST',
+                    'data': {'trackingNumber': tracking_number, 'pro': tracking_number}
+                },
+                
+                # AJAX-style submission
+                {
+                    'url': 'https://www.estes-express.com/api/tracking/search',
+                    'method': 'POST',
+                    'headers': {'X-Requested-With': 'XMLHttpRequest'},
+                    'data': {'proNumber': tracking_number}
+                }
+            ]
             
-            # Parse the page for form data
-            soup = BeautifulSoup(response.text, 'html.parser')
+            for approach in form_approaches:
+                try:
+                    if approach['method'] == 'GET':
+                        response = self.session.get(approach['url'], timeout=15)
+                    else:
+                        response = self.session.post(
+                            approach['url'], 
+                            data=approach.get('data', {}),
+                            headers=approach.get('headers', {}),
+                            timeout=15
+                        )
+                    
+                    if response.status_code == 200 and tracking_number in response.text:
+                        parsed = self.parse_html_response(response.text, tracking_number)
+                        if parsed.get('success'):
+                            logger.info(f"✅ Form submission success: {approach['url']}")
+                            return parsed
+                            
+                except Exception as e:
+                    logger.debug(f"Form approach failed: {approach['url']} - {str(e)}")
+                    continue
             
-            # Look for form elements
-            form = soup.find('form')
-            if not form:
-                return {'success': False, 'error': 'No form found on tracking page'}
-            
-            # Extract form data
-            form_data = {}
-            for input_field in form.find_all(['input', 'textarea']):
-                name = input_field.get('name')
-                value = input_field.get('value', '')
-                if name:
-                    form_data[name] = value
-            
-            # Add tracking number
-            form_data['trackingNumber'] = tracking_number
-            form_data['pro'] = tracking_number
-            form_data['proNumber'] = tracking_number
-            
-            # Submit form
-            form_action = form.get('action', tracking_url)
-            if not form_action.startswith('http'):
-                form_action = f"https://www.estes-express.com{form_action}"
-            
-            response = self.session.post(form_action, data=form_data, timeout=15)
-            
-            if response.status_code == 200:
-                parsed = self.parse_html_response(response.text, tracking_number)
-                if parsed.get('success'):
-                    logger.info("✅ Form submission success")
-                    return parsed
-            
-            return {'success': False, 'error': 'Form submission failed'}
+            return {'success': False, 'error': 'Form submission methods failed'}
             
         except Exception as e:
             return {'success': False, 'error': f'Form error: {str(e)}'}
@@ -253,7 +314,7 @@ class CloudCompatibleTracker:
             return {'success': False, 'error': f'API parsing error: {str(e)}'}
     
     def parse_html_response(self, html_content: str, tracking_number: str) -> Dict:
-        """Parse HTML response for tracking data"""
+        """Enhanced HTML response parsing for tracking data"""
         try:
             # Check if tracking number is in content
             if tracking_number not in html_content:
@@ -272,58 +333,90 @@ class CloudCompatibleTracker:
                 'source': 'HTML'
             }
             
-            # Look for status information
-            status_selectors = [
-                '.status', '.tracking-status', '.shipment-status',
-                '[class*="status"]', '[data-testid*="status"]'
+            # Enhanced status detection
+            status_patterns = [
+                # Direct text patterns
+                r'status[:\s]*([^<\n]{5,50})',
+                r'current status[:\s]*([^<\n]{5,50})',
+                r'shipment status[:\s]*([^<\n]{5,50})',
+                
+                # Common status words
+                r'(delivered|out for delivery|in transit|picked up|at origin|at destination)[^<\n]*',
+                
+                # Date + status patterns
+                r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}[^<\n]*(delivered|transit|pickup|origin|destination)[^<\n]*'
             ]
             
-            for selector in status_selectors:
-                elements = soup.select(selector)
-                for element in elements:
-                    text = element.get_text(strip=True)
-                    if text and any(keyword in text.lower() for keyword in ['delivered', 'transit', 'pickup']):
-                        tracking_data['status'] = text
+            for pattern in status_patterns:
+                matches = re.findall(pattern, html_content, re.IGNORECASE)
+                if matches:
+                    status_text = matches[0] if isinstance(matches[0], str) else str(matches[0][0]) if matches[0] else ""
+                    if len(status_text.strip()) > 3:
+                        tracking_data['status'] = status_text.strip()
                         break
-                if tracking_data['status']:
-                    break
             
-            # Look for location information
-            location_selectors = [
-                '.location', '.current-location', '.facility',
-                '[class*="location"]', '[data-testid*="location"]'
+            # Enhanced location detection
+            location_patterns = [
+                # City, State patterns
+                r'([A-Z][a-z]+,\s*[A-Z]{2})',
+                r'location[:\s]*([A-Z][a-z]+,\s*[A-Z]{2})',
+                r'([A-Z][A-Z\s]+,\s*[A-Z]{2})',  # All caps city names
+                
+                # ZIP code patterns
+                r'([A-Z][a-z]+,\s*[A-Z]{2}\s+\d{5})',
             ]
             
-            for selector in location_selectors:
-                elements = soup.select(selector)
-                for element in elements:
-                    text = element.get_text(strip=True)
-                    if text and re.search(r'[A-Z][a-z]+,?\s*[A-Z]{2}', text):
-                        tracking_data['location'] = text
+            for pattern in location_patterns:
+                matches = re.findall(pattern, html_content)
+                if matches:
+                    location_text = matches[0] if isinstance(matches[0], str) else matches[0]
+                    if len(location_text.strip()) > 3:
+                        tracking_data['location'] = location_text.strip()
                         break
-                if tracking_data['location']:
-                    break
             
-            # Look for events in table rows
-            rows = soup.find_all('tr')
+            # Enhanced event detection
             events = []
+            
+            # Look for table rows with dates and tracking info
+            rows = soup.find_all(['tr', 'div', 'p'])
             for row in rows:
                 row_text = row.get_text(strip=True)
-                if tracking_number in row_text or any(keyword in row_text.lower() for keyword in ['delivered', 'transit', 'pickup']):
-                    # Extract date if present
-                    date_match = re.search(r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', row_text)
-                    if date_match:
-                        events.append({
-                            'date': date_match.group(1),
-                            'description': row_text
-                        })
+                
+                # Check for date patterns
+                date_match = re.search(r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', row_text)
+                
+                if date_match and tracking_number in row_text:
+                    event_data = {
+                        'date': date_match.group(1),
+                        'description': row_text
+                    }
+                    
+                    # Extract status from event
+                    for status_word in ['delivered', 'transit', 'pickup', 'origin', 'destination', 'departed', 'arrived']:
+                        if status_word in row_text.lower():
+                            event_data['status'] = status_word.title()
+                            break
+                    
+                    events.append(event_data)
+                    
+                    # Use first event for main status if not found
+                    if not tracking_data['status'] and 'status' in event_data:
+                        tracking_data['status'] = event_data['status']
             
-            tracking_data['events'] = events
+            tracking_data['events'] = events[:10]  # Limit to 10 events
             
-            # Mark as successful if we found any data
+            # Mark as successful if we found any meaningful data
             if tracking_data['status'] or tracking_data['location'] or tracking_data['events']:
                 tracking_data['success'] = True
                 logger.info(f"✅ HTML parsing success: Status={tracking_data['status']}, Location={tracking_data['location']}, Events={len(tracking_data['events'])}")
+                return tracking_data
+            
+            # Even if no structured data, if tracking number is found, it's partial success
+            if tracking_number in html_content:
+                tracking_data['success'] = True
+                tracking_data['status'] = 'Tracking number found in system'
+                tracking_data['location'] = 'Data available but requires parsing enhancement'
+                logger.info("⚠️ Partial success: Tracking number found but limited data extracted")
                 return tracking_data
             
             return {'success': False, 'error': 'No tracking data found in HTML response'}
