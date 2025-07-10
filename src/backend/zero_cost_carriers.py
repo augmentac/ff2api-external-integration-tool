@@ -324,9 +324,76 @@ class PeninsulaZeroCostTracker:
     def _extract_from_html(self, soup: BeautifulSoup, pro_number: str) -> Optional[Dict]:
         """Extract tracking info from HTML"""
         try:
-            # Look for delivery information in HTML
+            # Look for Peninsula shipment status information
             text_content = soup.get_text()
             
+            # Check for "You are not logged in" message - this is NOT an error for basic tracking
+            if "You are not logged in" in text_content and "Shipment Status Information" in text_content:
+                # Peninsula shows basic tracking info even without login
+                # Extract shipment status from the status table
+                
+                # Look for shipment status in the table
+                shipment_status = None
+                status_patterns = [
+                    r'Shipment Status\s*([A-Z\s]+(?:DELIVERED|PICKED UP|IN TRANSIT|OUT FOR DELIVERY)[^<\n]*)',
+                    r'DELIVERED TO ([A-Z\s]+) ON (\d{4}-\d{2}-\d{2})',
+                    r'DELIVERED.*?(\d{4}-\d{2}-\d{2})',
+                    r'Status.*?([A-Z\s]+(?:DELIVERED|PICKED UP|IN TRANSIT|OUT FOR DELIVERY)[^<\n]*)'
+                ]
+                
+                for pattern in status_patterns:
+                    matches = re.findall(pattern, text_content, re.IGNORECASE)
+                    if matches:
+                        if isinstance(matches[0], tuple):
+                            # Handle tuple matches (like DELIVERED TO X ON DATE)
+                            if len(matches[0]) >= 2:
+                                shipment_status = f"DELIVERED TO {matches[0][0]} ON {matches[0][1]}"
+                            else:
+                                shipment_status = matches[0][0]
+                        else:
+                            shipment_status = matches[0]
+                        break
+                
+                # Look for the most recent activity in the shipment log
+                latest_activity = None
+                activity_patterns = [
+                    r'(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2}[ap]m)\s+(Delivered|PICKUP|LINE MFST|ASG ROUTE|DEL MFST|DOCK MFST|Not Delivered)(?:\s+([A-Z\s]+))?',
+                    r'(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2}[ap]m)\s+([A-Z\s]+)',
+                ]
+                
+                for pattern in activity_patterns:
+                    matches = re.findall(pattern, text_content, re.IGNORECASE)
+                    if matches:
+                        # Get the last (most recent) activity
+                        latest_match = matches[-1]
+                        if len(latest_match) >= 3:
+                            date_str = latest_match[0]
+                            time_str = latest_match[1]
+                            activity = latest_match[2]
+                            location = latest_match[3] if len(latest_match) > 3 else ""
+                            
+                            latest_activity = f"{date_str} | {time_str} - {activity}"
+                            if location:
+                                latest_activity += f" at {location}"
+                        break
+                
+                # Create successful tracking result
+                if shipment_status or latest_activity:
+                    tracking_status = shipment_status or latest_activity or "Status information available"
+                    
+                    return {
+                        'status': 'success',
+                        'pro_number': pro_number,
+                        'carrier': 'Peninsula Truck Lines',
+                        'tracking_status': tracking_status,
+                        'tracking_location': 'Peninsula Truck Lines Network',
+                        'tracking_event': latest_activity or tracking_status,
+                        'tracking_timestamp': datetime.now().isoformat(),
+                        'extracted_from': 'html_content',
+                        'notes': 'Basic tracking information extracted from public page'
+                    }
+            
+            # Fallback to original delivery pattern matching
             for pattern in self.delivery_patterns:
                 matches = re.findall(pattern, text_content, re.IGNORECASE)
                 if matches:
@@ -449,24 +516,50 @@ class FedExZeroCostTracker:
     async def _try_mobile_api(self, session: requests.Session, pro_number: str) -> Optional[Dict]:
         """Try FedEx mobile API endpoints"""
         try:
-            # Mobile headers
+            # Updated mobile headers to match current FedEx mobile app
             mobile_headers = {
-                'User-Agent': 'FedEx/7.5.0 (iPhone; iOS 17.0; Scale/3.00)',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'User-Agent': 'FedEx/8.2.1 (iPhone; iOS 17.5; Scale/3.00)',
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Origin': 'https://www.fedex.com',
+                'Referer': 'https://www.fedex.com/apps/fedextrack/'
             }
             session.headers.update(mobile_headers)
             
-            # Mobile API endpoints
+            # Updated mobile API endpoints based on current FedEx infrastructure
             mobile_endpoints = [
-                f"{self.mobile_api}/api/track/{pro_number}",
-                f"{self.mobile_api}/api/shipment/{pro_number}",
-                f"{self.mobile_api}/track?trackingNumber={pro_number}"
+                f"https://www.fedex.com/trackingCal/track",
+                f"https://www.fedex.com/apps/fedextrack/index.html",
+                f"https://api.fedex.com/track/v1/trackingnumbers",
+                f"https://www.fedex.com/api/track/v1/trackingnumbers",
+                f"https://mobile.fedex.com/api/track/{pro_number}",
+                f"https://www.fedex.com/tracking/rest/track"
             ]
             
             for endpoint in mobile_endpoints:
                 try:
-                    response = session.get(endpoint, timeout=15)
+                    # Try POST request with tracking number
+                    post_data = {
+                        'data': {
+                            'TrackPackagesRequest': {
+                                'appType': 'WTRK',
+                                'appDeviceType': 'DESKTOP',
+                                'supportHTML': True,
+                                'supportCurrentLocation': True,
+                                'selectionDetails': {
+                                    'packageIdentifier': {
+                                        'type': 'TRACKING_NUMBER_OR_DOORTAG',
+                                        'value': pro_number
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    response = session.post(endpoint, json=post_data, timeout=15)
+                    
                     if response.status_code == 200:
                         try:
                             data = response.json()
@@ -475,6 +568,32 @@ class FedExZeroCostTracker:
                                 return tracking_info
                         except json.JSONDecodeError:
                             pass
+                    
+                    # Try GET request
+                    get_params = {
+                        'trackingNumber': pro_number,
+                        'trackNums': pro_number,
+                        'action': 'track'
+                    }
+                    
+                    response = session.get(endpoint, params=get_params, timeout=15)
+                    
+                    if response.status_code == 200:
+                        try:
+                            data = response.json()
+                            tracking_info = self._process_fedex_response(data, pro_number)
+                            if tracking_info:
+                                return tracking_info
+                        except json.JSONDecodeError:
+                            # Try parsing as HTML
+                            soup = BeautifulSoup(response.text, 'html.parser')
+                            tracking_info = self._extract_fedex_from_html(soup, pro_number)
+                            if tracking_info:
+                                return tracking_info
+                    
+                    # Small delay between attempts
+                    await asyncio.sleep(0.5)
+                    
                 except requests.RequestException:
                     continue
             
@@ -666,7 +785,12 @@ class EstesZeroCostTracker:
         try:
             session = self.anti_scraping.create_stealth_session("estes")
             
-            # Try JavaScript rendering first
+            # Try stealth browser first (most effective for Estes)
+            result = await self._try_stealth_browser(pro_number)
+            if result and result.get('status') == 'success':
+                return result
+            
+            # Try JavaScript rendering
             result = await self._try_javascript_rendering(session, pro_number)
             if result and result.get('status') == 'success':
                 return result
@@ -729,22 +853,32 @@ class EstesZeroCostTracker:
     async def _try_internal_api(self, session: requests.Session, pro_number: str) -> Optional[Dict]:
         """Try Estes internal API endpoints"""
         try:
-            # Internal API endpoints
+            # Updated internal API endpoints based on current Estes infrastructure
             api_endpoints = [
-                f"{self.api_base}/tracking/{pro_number}",
+                f"{self.base_url}/api/shipment-tracking/track/{pro_number}",
+                f"{self.base_url}/api/v2/tracking/{pro_number}",
+                f"{self.base_url}/services/tracking/shipment/{pro_number}",
+                f"{self.base_url}/api/track?pro={pro_number}",
+                f"{self.base_url}/shipment-tracking/api/track/{pro_number}",
                 f"{self.api_base}/shipment/{pro_number}",
-                f"{self.api_base}/pro/{pro_number}",
-                f"{self.base_url}/services/tracking/{pro_number}"
+                f"{self.api_base}/track/{pro_number}"
             ]
             
             for endpoint in api_endpoints:
                 try:
+                    # Enhanced headers to mimic browser requests
                     headers = {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json, text/javascript, */*; q=0.01',
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Referer': f"{self.base_url}/shipment-tracking",
+                        'Origin': self.base_url,
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
                     }
                     
+                    # Try GET request
                     response = session.get(endpoint, headers=headers, timeout=15)
                     
                     if response.status_code == 200:
@@ -759,6 +893,28 @@ class EstesZeroCostTracker:
                             tracking_info = self._extract_estes_from_html(soup, pro_number)
                             if tracking_info:
                                 return tracking_info
+                    
+                    # Try POST request with PRO number in body
+                    if response.status_code in [404, 405]:
+                        post_data = {
+                            'trackingNumber': pro_number,
+                            'pro': pro_number,
+                            'proNumber': pro_number
+                        }
+                        
+                        response = session.post(endpoint, json=post_data, headers=headers, timeout=15)
+                        
+                        if response.status_code == 200:
+                            try:
+                                data = response.json()
+                                tracking_info = self._process_estes_response(data, pro_number)
+                                if tracking_info:
+                                    return tracking_info
+                            except json.JSONDecodeError:
+                                pass
+                    
+                    # Small delay between attempts
+                    await asyncio.sleep(0.5)
                     
                 except requests.RequestException:
                     continue
@@ -792,6 +948,110 @@ class EstesZeroCostTracker:
             
         except Exception as e:
             self.logger.debug(f"Mobile version attempt failed: {e}")
+            return None
+    
+    async def _try_stealth_browser(self, pro_number: str) -> Optional[Dict]:
+        """Try stealth browser with advanced anti-detection techniques"""
+        try:
+            from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.common.exceptions import TimeoutException, NoSuchElementException
+            import undetected_chromedriver as uc
+            
+            # Use undetected-chromedriver for better stealth
+            options = Options()
+            options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--window-size=1920,1080')
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option('useAutomationExtension', False)
+            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36')
+            
+            # Initialize stealth driver
+            driver = uc.Chrome(options=options)
+            
+            # Execute stealth script to hide automation
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            
+            try:
+                # Navigate to Estes tracking page
+                tracking_url = f"https://www.estes-express.com/myestes/tracking/shipment?searchValue={pro_number}"
+                self.logger.info(f"Loading Estes page with stealth browser for PRO {pro_number}")
+                
+                driver.get(tracking_url)
+                
+                # Wait for page to load and look for tracking results
+                wait = WebDriverWait(driver, 20)
+                
+                # Try multiple selectors for tracking information
+                tracking_selectors = [
+                    '.tracking-results',
+                    '.shipment-details',
+                    '.tracking-info',
+                    '[data-testid="tracking-results"]',
+                    '.tracking-summary'
+                ]
+                
+                tracking_found = False
+                for selector in tracking_selectors:
+                    try:
+                        element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+                        if element:
+                            tracking_found = True
+                            break
+                    except TimeoutException:
+                        continue
+                
+                if not tracking_found:
+                    # Try to find and click search button if needed
+                    search_button_selectors = [
+                        'button[type="submit"]',
+                        '.search-button',
+                        '.btn-search',
+                        '[data-testid="search-button"]'
+                    ]
+                    
+                    for button_selector in search_button_selectors:
+                        try:
+                            button = driver.find_element(By.CSS_SELECTOR, button_selector)
+                            if button.is_displayed():
+                                driver.execute_script("arguments[0].click();", button)
+                                self.logger.info(f"Clicked search button: {button_selector}")
+                                
+                                # Wait for results after clicking
+                                time.sleep(3)
+                                break
+                        except NoSuchElementException:
+                            continue
+                
+                # Get page content and extract tracking information
+                page_content = driver.page_source
+                
+                # Parse the page content
+                soup = BeautifulSoup(page_content, 'html.parser')
+                tracking_info = self._extract_estes_from_html(soup, pro_number)
+                
+                if tracking_info:
+                    self.logger.info(f"Stealth browser tracking successful for PRO {pro_number}")
+                    return tracking_info
+                else:
+                    # Log page content for debugging
+                    self.logger.debug(f"No tracking data found. Page content sample: {page_content[:500]}")
+                    return None
+                
+            finally:
+                driver.quit()
+                
+        except ImportError:
+            self.logger.warning("undetected-chromedriver not available - install with: pip install undetected-chromedriver")
+            return None
+        except Exception as e:
+            self.logger.error(f"Stealth browser attempt failed: {e}")
             return None
     
     def _extract_estes_from_html(self, soup: BeautifulSoup, pro_number: str) -> Optional[Dict]:
