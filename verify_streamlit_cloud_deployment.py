@@ -41,6 +41,18 @@ def check_deployment_status():
             else:
                 print("   ❌ Unexpected redirect")
                 return False
+        elif response.status_code == 303:
+            print("   ✅ App is accessible (redirecting to auth)")
+            redirect_url = response.headers.get('location', '')  # lowercase 'location' header
+            print(f"   🔐 Auth redirect: {redirect_url}")
+            
+            # This confirms the app is running and using authentication
+            if 'auth' in redirect_url.lower():
+                print("   ✅ FF2API authentication system is active")
+                return True
+            else:
+                print("   ❌ Unexpected redirect")
+                return False
                 
         elif response.status_code == 200:
             print("   ✅ App is accessible (no auth required)")
