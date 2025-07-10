@@ -7,194 +7,182 @@ Solves the technical barriers preventing successful tracking
 import asyncio
 import logging
 import time
-from typing import Dict, List, Optional
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List
+from concurrent.futures import ThreadPoolExecutor
+import os
 
-from .apple_silicon_estes_client import AppleSiliconEstesClient, track_estes_sync
-from .cloudflare_bypass_fedex_client import CloudFlareBypassFedExClient, track_fedex_sync
+from .apple_silicon_estes_client import AppleSiliconEstesClient
+try:
+    from .cloudflare_bypass_fedex_client import CloudflareBypassFedexClient
+except ImportError:
+    CloudflareBypassFedexClient = None
+
+try:
+    from .cloud_compatible_tracking import track_cloud_compatible
+except ImportError:
+    track_cloud_compatible = None
 
 # Import legacy system for fallback
-ZeroCostCarrierTracking = None
 try:
-    from .zero_cost_carriers import ZeroCostCarrierTracking
+    from .zero_cost_carrier_tracking import ZeroCostCarrierTracking
 except ImportError:
-    pass
+    ZeroCostCarrierTracking = None
 
 logger = logging.getLogger(__name__)
 
 class BarrierBreakingTrackingSystem:
     """
-    Main barrier-breaking tracking system that solves technical barriers
-    - Apple Silicon CPU architecture barrier for Estes Express
-    - CloudFlare protection barrier for FedEx Freight
+    Advanced tracking system that breaks through modern barriers
     """
     
     def __init__(self):
         self.estes_client = AppleSiliconEstesClient()
-        self.fedex_client = CloudFlareBypassFedExClient()
+        self.fedex_client = CloudflareBypassFedexClient() if CloudflareBypassFedexClient else None
+        self.executor = ThreadPoolExecutor(max_workers=5)
         self.legacy_client = ZeroCostCarrierTracking() if ZeroCostCarrierTracking else None
         
-        # Carrier detection patterns
-        self.carrier_patterns = {
-            'estes': ['estes', 'est', 'estes-express'],
-            'fedex': ['fedex', 'fdx', 'fedex-freight', 'fedexfreight'],
-            'peninsula': ['peninsula', 'pen', 'peninsula-trucking'],
-            'rl': ['rl', 'r&l', 'rl-carriers', 'r&l-carriers']
-        }
+        # Detect if we're in a cloud environment
+        self.is_cloud = (
+            bool(os.environ.get('STREAMLIT_CLOUD', False)) or
+            bool(os.environ.get('DYNO', False)) or
+            bool(os.environ.get('HEROKU', False)) or
+            'streamlit' in os.environ.get('HOSTNAME', '').lower()
+        )
+        
+        if self.is_cloud:
+            logger.info("🌐 Cloud environment detected - using cloud-compatible tracking")
+        else:
+            logger.info("🖥️ Local environment detected - using full browser automation")
     
     def detect_carrier(self, tracking_number: str) -> str:
-        """Detect carrier from tracking number format"""
-        tracking_number = tracking_number.upper().strip()
+        """Detect carrier based on tracking number patterns"""
+        if not tracking_number:
+            return 'unknown'
+        
+        tracking_number = str(tracking_number).strip()
         
         # Estes Express patterns
-        if (len(tracking_number) == 10 and tracking_number.isdigit()) or \
-           (len(tracking_number) == 11 and tracking_number.startswith('0')):
+        if len(tracking_number) == 10 and tracking_number.isdigit():
             return 'estes'
         
-        # FedEx patterns
-        if len(tracking_number) == 12 and tracking_number.isdigit():
-            return 'fedex'
-        elif len(tracking_number) == 14 and tracking_number.isdigit():
-            return 'fedex'
-        elif tracking_number.startswith(('1001', '1002', '1003', '1004', '1005')):
+        # FedEx Freight patterns
+        if len(tracking_number) == 10 and tracking_number.isdigit():
             return 'fedex'
         
-        # Peninsula patterns
-        if len(tracking_number) == 8 and tracking_number.isdigit():
-            return 'peninsula'
-        elif tracking_number.startswith(('PEN', 'P')):
-            return 'peninsula'
+        # R&L Carriers patterns
+        if tracking_number.startswith('I') and len(tracking_number) == 10:
+            return 'rl'
         
-        # R&L patterns
+        # Peninsula Truck Lines patterns
         if len(tracking_number) == 9 and tracking_number.isdigit():
-            return 'rl'
-        elif tracking_number.startswith(('RL', 'R')):
-            return 'rl'
+            return 'peninsula'
         
-        # Default to unknown
         return 'unknown'
     
-    async def track_estes_with_barriers_solved(self, tracking_number: str) -> Dict:
-        """Track Estes Express with Apple Silicon barriers solved"""
+    async def track_single_shipment(self, tracking_number: str, carrier: str = None) -> Dict:
+        """Track a single shipment with advanced barrier-breaking techniques"""
         try:
-            logger.info(f"🔧 Solving Apple Silicon barriers for Estes: {tracking_number}")
-            result = await self.estes_client.track_shipment(tracking_number)
+            logger.info(f"🚀 Tracking {tracking_number} with carrier: {carrier}")
             
-            if result.get('success'):
-                logger.info("✅ Apple Silicon barrier breakthrough successful for Estes")
-                result['method'] = 'Apple Silicon Breakthrough'
-                result['barrier_solved'] = 'ARM64 CPU Architecture'
-                return result
+            # Detect carrier if not provided
+            if not carrier:
+                carrier = self.detect_carrier(tracking_number)
+                logger.info(f"🔍 Detected carrier: {carrier}")
+            
+            # Choose tracking method based on environment
+            if self.is_cloud:
+                # Use cloud-compatible tracking
+                result = await self.track_cloud_compatible(tracking_number, carrier)
             else:
-                logger.warning(f"❌ Apple Silicon barrier breakthrough failed: {result.get('error')}")
-                return result
-                
+                # Use full browser automation
+                result = await self.track_with_browser_automation(tracking_number, carrier)
+            
+            # Add metadata
+            result['tracking_number'] = tracking_number
+            result['carrier'] = carrier
+            result['timestamp'] = time.time()
+            result['environment'] = 'cloud' if self.is_cloud else 'local'
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Apple Silicon Estes tracking error: {e}")
+            logger.error(f"❌ Error tracking {tracking_number}: {str(e)}")
             return {
                 'success': False,
-                'error': str(e),
+                'error': f'Tracking error: {str(e)}',
                 'tracking_number': tracking_number,
-                'carrier': 'Estes Express'
+                'carrier': carrier or 'Unknown',
+                'timestamp': time.time()
             }
     
-    async def track_fedex_with_barriers_solved(self, tracking_number: str) -> Dict:
-        """Track FedEx Freight with CloudFlare barriers solved"""
+    async def track_cloud_compatible(self, tracking_number: str, carrier: str) -> Dict:
+        """Track using cloud-compatible methods (no browser automation)"""
         try:
-            logger.info(f"🔧 Solving CloudFlare barriers for FedEx: {tracking_number}")
-            result = await self.fedex_client.track_shipment(tracking_number)
+            logger.info(f"☁️ Using cloud-compatible tracking for {tracking_number}")
             
-            if result.get('success'):
-                logger.info("✅ CloudFlare barrier breakthrough successful for FedEx")
-                result['method'] = 'CloudFlare Breakthrough'
-                result['barrier_solved'] = 'CloudFlare Protection + TLS Fingerprinting'
-                return result
-            else:
-                logger.warning(f"❌ CloudFlare barrier breakthrough failed: {result.get('error')}")
-                return result
-                
-        except Exception as e:
-            logger.error(f"CloudFlare FedEx tracking error: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'tracking_number': tracking_number,
-                'carrier': 'FedEx Freight'
-            }
-    
-    def track_with_legacy_fallback(self, tracking_number: str, carrier: str) -> Dict:
-        """Track using legacy system as fallback"""
-        try:
-            if self.legacy_client:
-                logger.info(f"🔄 Using legacy fallback for {carrier}: {tracking_number}")
-                result = self.legacy_client.track_shipment(tracking_number)
+            # Use the cloud-compatible tracking system if available
+            if track_cloud_compatible:
+                result = await track_cloud_compatible(tracking_number, carrier)
                 
                 if result.get('success'):
-                    result['method'] = 'Legacy Fallback'
-                    logger.info("✅ Legacy fallback successful")
+                    logger.info(f"✅ Cloud tracking successful: {result.get('status', 'N/A')}")
                     return result
                 else:
-                    logger.warning(f"❌ Legacy fallback failed: {result.get('error')}")
-                    return result
-            else:
-                return {
-                    'success': False,
-                    'error': 'Legacy system not available',
-                    'tracking_number': tracking_number,
-                    'carrier': carrier
-                }
-                
-        except Exception as e:
-            logger.error(f"Legacy fallback error: {e}")
+                    logger.warning(f"⚠️ Cloud tracking failed: {result.get('error', 'Unknown error')}")
+            
+            # Fallback to legacy system detection
             return {
                 'success': False,
-                'error': str(e),
-                'tracking_number': tracking_number,
-                'carrier': carrier
+                'status': 'No status available',
+                'location': 'No location available',
+                'events': [],
+                'error': 'Legacy system not available'
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Cloud tracking error: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Cloud tracking error: {str(e)}',
+                'status': 'No status available',
+                'location': 'No location available',
+                'events': []
             }
     
-    async def track_single_shipment(self, tracking_number: str) -> Dict:
-        """Track a single shipment with barrier-breaking capabilities"""
-        start_time = time.time()
-        
-        # Detect carrier
-        carrier = self.detect_carrier(tracking_number)
-        logger.info(f"📦 Tracking {tracking_number} - Detected carrier: {carrier}")
-        
-        # Route to appropriate barrier-breaking method
-        if carrier == 'estes':
-            result = await self.track_estes_with_barriers_solved(tracking_number)
-        elif carrier == 'fedex':
-            result = await self.track_fedex_with_barriers_solved(tracking_number)
-        elif carrier in ['peninsula', 'rl']:
-            # These carriers don't have the same barriers, use legacy or direct methods
-            result = self.track_with_legacy_fallback(tracking_number, carrier)
-        else:
-            # Unknown carrier, try all methods
-            logger.info(f"🔍 Unknown carrier, trying all barrier-breaking methods...")
+    async def track_with_browser_automation(self, tracking_number: str, carrier: str) -> Dict:
+        """Track using browser automation (local environment)"""
+        try:
+            logger.info(f"🌐 Using browser automation for {tracking_number}")
             
-            # Try Estes first
-            result = await self.track_estes_with_barriers_solved(tracking_number)
-            if not result.get('success'):
-                # Try FedEx
-                result = await self.track_fedex_with_barriers_solved(tracking_number)
-                if not result.get('success'):
-                    # Try legacy
-                    result = self.track_with_legacy_fallback(tracking_number, 'unknown')
-        
-        # If primary method failed, try fallback
-        if not result.get('success') and carrier in ['estes', 'fedex']:
-            logger.info(f"🔄 Primary method failed, trying legacy fallback...")
-            fallback_result = self.track_with_legacy_fallback(tracking_number, carrier)
-            if fallback_result.get('success'):
-                result = fallback_result
-        
-        # Add timing information
-        elapsed_time = time.time() - start_time
-        result['elapsed_time'] = elapsed_time
-        result['timestamp'] = time.time()
-        
-        return result
+            if 'estes' in carrier.lower():
+                result = await self.estes_client.track_shipment(tracking_number)
+            elif 'fedex' in carrier.lower() and self.fedex_client:
+                result = await self.fedex_client.track_shipment(tracking_number)
+            else:
+                result = {
+                    'success': False,
+                    'error': f'Browser automation not implemented for {carrier}',
+                    'status': 'No status available',
+                    'location': 'No location available',
+                    'events': []
+                }
+            
+            if result.get('success'):
+                logger.info(f"✅ Browser automation successful: {result.get('status', 'N/A')}")
+            else:
+                logger.warning(f"⚠️ Browser automation failed: {result.get('error', 'Unknown error')}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Browser automation error: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Browser automation error: {str(e)}',
+                'status': 'No status available',
+                'location': 'No location available',
+                'events': []
+            }
     
     async def track_multiple_shipments(self, tracking_numbers: List[str]) -> Dict:
         """Track multiple shipments with barrier-breaking capabilities"""
