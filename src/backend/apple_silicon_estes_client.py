@@ -21,6 +21,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 from playwright.async_api import async_playwright
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -174,16 +175,22 @@ class AppleSiliconEstesClient:
                 logger.warning(f"Failed to execute stealth script: {e}")
     
     async def track_with_playwright(self, tracking_number: str) -> Dict:
-        """Track using Playwright (ARM64 compatible) with enhanced wait conditions and result detection"""
+        """Track using Playwright (ARM64 compatible) with enhanced wait conditions"""
         try:
             async with async_playwright() as p:
+                # Use headless mode for cloud deployment
+                is_cloud = bool(os.environ.get('STREAMLIT_CLOUD', False)) or bool(os.environ.get('DYNO', False))
+                
                 browser = await p.chromium.launch(
-                    headless=False,  # Show browser for debugging
+                    headless=is_cloud,  # Headless for cloud, visible for local debugging
                     args=[
                         '--no-sandbox',
                         '--disable-dev-shm-usage',
                         '--disable-gpu',
-                        '--disable-extensions'
+                        '--disable-extensions',
+                        '--disable-background-timer-throttling',
+                        '--disable-backgrounding-occluded-windows',
+                        '--disable-renderer-backgrounding'
                     ]
                 )
                 
@@ -688,16 +695,24 @@ class AppleSiliconEstesClient:
                 # Filter for rows with tracking-related classes
                 tracking_rows = []
                 for row in mat_rows:
-                    row_classes = row.get('class', [])
-                    if any('mat-row' in str(cls) or 'table-row' in str(cls) for cls in row_classes):
-                        tracking_rows.append(row)
+                    if hasattr(row, 'get'):  # Check if it's a BeautifulSoup element
+                        row_classes = row.get('class', [])
+                        if row_classes and any('mat-row' in str(cls) or 'table-row' in str(cls) for cls in row_classes):
+                            tracking_rows.append(row)
                 
                 # Also get all table rows as fallback
                 all_rows = soup.find_all('tr')
                 tracking_rows.extend(all_rows)
                 
-                # Remove duplicates
-                mat_rows = list(set(tracking_rows))
+                # Remove duplicates by converting to set and back (but preserve order)
+                seen = set()
+                unique_rows = []
+                for row in tracking_rows:
+                    row_id = id(row)
+                    if row_id not in seen:
+                        seen.add(row_id)
+                        unique_rows.append(row)
+                mat_rows = unique_rows
                 
                 events = []
                 latest_status = None
