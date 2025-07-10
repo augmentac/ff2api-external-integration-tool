@@ -15,7 +15,18 @@ import json
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 
-from ..backend.barrier_breaking_tracking_system import BarrierBreakingTrackingSystem
+# Try to import barrier-breaking system, fallback to enhanced system if not available
+try:
+    from ..backend.barrier_breaking_tracking_system import BarrierBreakingTrackingSystem
+    BARRIER_BREAKING_AVAILABLE = True
+except ImportError:
+    BARRIER_BREAKING_AVAILABLE = False
+    # Fallback to enhanced LTL tracking client
+    try:
+        from ..backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
+    except ImportError:
+        EnhancedLTLTrackingClient = None
+
 from ..backend.carrier_detection import detect_carrier_from_pro
 
 
@@ -507,11 +518,23 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     else:
         carriers = [None] * len(pro_numbers)
     
-    # Initialize barrier-breaking tracking system
+    # Initialize tracking system with fallback
     try:
-        tracking_client = BarrierBreakingTrackingSystem()
+        if BARRIER_BREAKING_AVAILABLE:
+            tracking_client = BarrierBreakingTrackingSystem()
+            system_name = "Barrier-Breaking System"
+            use_single_shipment_method = True
+        elif EnhancedLTLTrackingClient:
+            tracking_client = EnhancedLTLTrackingClient()
+            system_name = "Enhanced Zero-Cost System"
+            use_single_shipment_method = False
+        else:
+            raise ImportError("No tracking system available")
+            
+        st.info(f"🚀 Using {system_name} for tracking")
+        
     except Exception as e:
-        st.error(f"❌ Failed to initialize barrier-breaking tracking system: {str(e)}")
+        st.error(f"❌ Failed to initialize tracking system: {str(e)}")
         # Create failed results for all PROs
         results = []
         for pro_number in pro_numbers:
@@ -522,7 +545,7 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                 'location': 'N/A',
                 'timestamp': 'N/A',
                 'success': False,
-                'error_message': f"Barrier-breaking tracking system initialization failed: {str(e)}"
+                'error_message': f"Tracking system initialization failed: {str(e)}"
             })
         st.session_state.pro_tracking_results = results
         return
@@ -545,25 +568,45 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                 progress_bar.progress(progress)
                 status_text.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_number}")
                 
-                # Track the PRO using barrier-breaking system
+                # Track the PRO using appropriate system
                 try:
-                    result_dict = await tracking_client.track_single_shipment(pro_number)
+                    if use_single_shipment_method:
+                        # Barrier-breaking system uses track_single_shipment
+                        result_dict = await tracking_client.track_single_shipment(pro_number)
+                    else:
+                        # Enhanced system uses track_shipment with carrier
+                        result_dict = await tracking_client.track_shipment(pro_number, carrier_name)
                     
                     # Use provided carrier name if available, otherwise use detected carrier name
                     final_carrier_name = carrier_name or result_dict.get('carrier', 'Unknown')
                     
-                    # Create result record based on barrier-breaking system response
-                    result = {
-                        'pro_number': pro_number,
-                        'carrier': final_carrier_name,
-                        'status': result_dict.get('status', 'No status available'),
-                        'location': result_dict.get('location', 'No location available'),
-                        'timestamp': result_dict.get('timestamp', 'No timestamp available'),
-                        'success': result_dict.get('success', False),
-                        'error_message': result_dict.get('error', '') if not result_dict.get('success') else None,
-                        'method': result_dict.get('method', 'Barrier-Breaking System'),
-                        'barrier_solved': result_dict.get('barrier_solved', '')
-                    }
+                    # Create result record based on system type
+                    if use_single_shipment_method:
+                        # Barrier-breaking system response format
+                        result = {
+                            'pro_number': pro_number,
+                            'carrier': final_carrier_name,
+                            'status': result_dict.get('status', 'No status available'),
+                            'location': result_dict.get('location', 'No location available'),
+                            'timestamp': result_dict.get('timestamp', 'No timestamp available'),
+                            'success': result_dict.get('success', False),
+                            'error_message': result_dict.get('error', '') if not result_dict.get('success') else None,
+                            'method': result_dict.get('method', 'Barrier-Breaking System'),
+                            'barrier_solved': result_dict.get('barrier_solved', '')
+                        }
+                    else:
+                        # Enhanced system response format
+                        result = {
+                            'pro_number': pro_number,
+                            'carrier': final_carrier_name,
+                            'status': result_dict.get('tracking_status', 'No status available'),
+                            'location': result_dict.get('tracking_location', 'No location available'),
+                            'timestamp': result_dict.get('tracking_timestamp', 'No timestamp available'),
+                            'success': result_dict.get('status') == 'success',
+                            'error_message': result_dict.get('message', '') if result_dict.get('status') != 'success' else None,
+                            'method': 'Enhanced Zero-Cost System',
+                            'barrier_solved': ''
+                        }
                     
                 except Exception as e:
                     # Create error result - prioritize provided carrier name
@@ -590,13 +633,17 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         
         # Complete progress
         progress_bar.progress(1.0)
-        status_text.text("Tracking complete with Barrier-Breaking System! 🎉")
+        if BARRIER_BREAKING_AVAILABLE:
+            status_text.text("Tracking complete with Barrier-Breaking System! 🎉")
+        else:
+            status_text.text("Tracking complete with Enhanced Zero-Cost System! ✅")
         
         # Store results
         st.session_state.pro_tracking_results = results
         
     except Exception as e:
-        st.error(f"❌ Error during barrier-breaking tracking: {str(e)}")
+        system_name = "barrier-breaking" if BARRIER_BREAKING_AVAILABLE else "enhanced zero-cost"
+        st.error(f"❌ Error during {system_name} tracking: {str(e)}")
         # Store partial results if any
         if results:
             st.session_state.pro_tracking_results = results
