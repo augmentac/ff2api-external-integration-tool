@@ -6,11 +6,22 @@ cryptography>=3.4.8
 numpy>=1.24.0
 python-dateutil>=2.8.2
 beautifulsoup4>=4.12.0
+aiohttp>=3.8.0
+asyncio-throttle>=1.0.2
+
+# Browser automation (cloud-compatible)
 selenium>=4.15.0
 webdriver-manager>=4.0.0
+playwright>=1.40.0
+
+# Anti-scraping and HTTP enhancements
 requests-html>=0.10.0
 cloudscraper>=1.2.60
 fake-useragent>=1.4.0
 undetected-chromedriver>=3.5.0
-playwright>=1.40.0
-curl-cffi>=0.5.10 
+curl-cffi>=0.5.10
+
+# Additional cloud-compatible dependencies
+httpx>=0.25.0
+aiofiles>=23.0.0
+tenacity>=8.0.0 
