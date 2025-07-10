@@ -716,6 +716,15 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     progress_bar = st.progress(0)
     status_text = st.empty()
     
+    # Live results container
+    live_results_container = st.container()
+    with live_results_container:
+        st.markdown("### 📊 Live Tracking Results")
+        live_results_expander = st.expander("🔍 View Live Results", expanded=True)
+        with live_results_expander:
+            live_results_placeholder = st.empty()
+            live_results_placeholder.info("🚀 Starting tracking... Results will appear here as they become available.")
+    
     results = []
     
     try:
@@ -813,6 +822,9 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                 
                 results.append(result)
                 
+                # Update live results display
+                _update_live_results(live_results_placeholder, results, i + 1, len(pro_numbers))
+                
                 # Small delay between requests
                 if i < len(pro_numbers) - 1:  # Don't delay after the last request
                     await asyncio.sleep(0.5)  # Additional small delay for UI responsiveness
@@ -841,6 +853,65 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     finally:
         # Barrier-breaking system doesn't require explicit cleanup
         pass
+
+
+def _update_live_results(placeholder, results: List[Dict], current_count: int, total_count: int):
+    """Update the live results display with current tracking results"""
+    
+    if not results:
+        placeholder.info("🚀 Starting tracking... Results will appear here as they become available.")
+        return
+    
+    # Calculate statistics
+    successful = len([r for r in results if r.get('success', False)])
+    failed = len(results) - successful
+    success_rate = (successful / len(results)) * 100 if results else 0
+    
+    # Create results display
+    with placeholder.container():
+        # Summary stats
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Completed", f"{current_count}/{total_count}")
+        with col2:
+            st.metric("Successful", successful)
+        with col3:
+            st.metric("Failed", failed)
+        with col4:
+            st.metric("Success Rate", f"{success_rate:.1f}%")
+        
+        # Recent results (show last 5)
+        st.markdown("**Recent Results:**")
+        
+        # Show results in reverse order (most recent first)
+        recent_results = results[-5:] if len(results) > 5 else results
+        recent_results.reverse()
+        
+        for result in recent_results:
+            success_icon = "✅" if result.get('success') else "❌"
+            carrier = result.get('carrier', 'Unknown')
+            pro_number = result.get('pro_number', 'N/A')
+            status = result.get('status', 'No status available')
+            location = result.get('location', 'No location available')
+            
+            # Format the result display
+            if result.get('success'):
+                st.success(f"{success_icon} **{pro_number}** ({carrier})")
+                st.caption(f"📍 Status: {status} | Location: {location}")
+            else:
+                st.error(f"{success_icon} **{pro_number}** ({carrier})")
+                error_msg = result.get('error_message', 'Unknown error')
+                st.caption(f"❌ Error: {error_msg}")
+        
+        # Show completion message if all done
+        if current_count == total_count:
+            if successful == total_count:
+                st.balloons()
+                st.success(f"🎉 All {total_count} PRO numbers tracked successfully!")
+            elif successful > 0:
+                st.success(f"✅ Tracking complete! {successful}/{total_count} PRO numbers tracked successfully.")
+            else:
+                st.error(f"❌ Tracking complete. Unfortunately, none of the {total_count} PRO numbers could be tracked.")
 
 
 def _reset_pro_tracking_workflow():
