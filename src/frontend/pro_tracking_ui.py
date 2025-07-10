@@ -15,7 +15,7 @@ import json
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 
-from ..backend.ltl_tracking_client import LTLTrackingClient
+from ..backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
 from ..backend.carrier_detection import detect_carrier_from_pro
 
 
@@ -503,12 +503,9 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     else:
         carriers = [None] * len(pro_numbers)
     
-    # Initialize tracking client
+    # Initialize enhanced tracking client
     try:
-        tracking_client = LTLTrackingClient(
-            delay_between_requests=delay,
-            max_retries=max_retries
-        )
+        tracking_client = EnhancedLTLTrackingClient()
     except Exception as e:
         st.error(f"❌ Failed to initialize tracking client: {str(e)}")
         # Create failed results for all PROs
@@ -533,64 +530,74 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     results = []
     
     try:
-        for i, (pro_number, carrier_name) in enumerate(zip(pro_numbers, carriers)):
-            # Update progress
-            progress = (i / len(pro_numbers))
-            progress_bar.progress(progress)
-            status_text.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_number}")
-            
-            # Track the PRO
-            try:
-                tracking_result = tracking_client.track_pro_number(pro_number)
+        import asyncio
+        
+        # Create async function to handle tracking
+        async def track_all_pros():
+            results = []
+            for i, (pro_number, carrier_name) in enumerate(zip(pro_numbers, carriers)):
+                # Update progress
+                progress = (i / len(pro_numbers))
+                progress_bar.progress(progress)
+                status_text.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_number}")
                 
-                # Use provided carrier name if available, otherwise use detected carrier name
-                final_carrier_name = carrier_name or tracking_result.carrier_name or 'Unknown'
+                # Track the PRO using enhanced client
+                try:
+                    result_dict = await tracking_client.track_shipment(pro_number, carrier_name)
+                    
+                    # Use provided carrier name if available, otherwise use detected carrier name
+                    final_carrier_name = carrier_name or result_dict.get('carrier', 'Unknown')
+                    
+                    # Create result record
+                    result = {
+                        'pro_number': pro_number,
+                        'carrier': final_carrier_name,
+                        'status': result_dict.get('tracking_status', 'No status available'),
+                        'location': result_dict.get('tracking_location', 'No location available'),
+                        'timestamp': result_dict.get('tracking_timestamp', 'No timestamp available'),
+                        'success': result_dict.get('status') == 'success',
+                        'error_message': result_dict.get('message', '') if result_dict.get('status') != 'success' else None
+                    }
+                    
+                except Exception as e:
+                    # Create error result - prioritize provided carrier name
+                    result = {
+                        'pro_number': pro_number,
+                        'carrier': carrier_name or 'Unknown',
+                        'status': 'Tracking failed',
+                        'location': 'N/A',
+                        'timestamp': 'N/A',
+                        'success': False,
+                        'error_message': str(e)
+                    }
                 
-                # Create result record
-                result = {
-                    'pro_number': pro_number,
-                    'carrier': final_carrier_name,
-                    'status': tracking_result.tracking_status or 'No status available',
-                    'location': tracking_result.tracking_location or 'No location available',
-                    'timestamp': tracking_result.tracking_timestamp or 'No timestamp available',
-                    'success': tracking_result.scrape_success,
-                    'error_message': tracking_result.error_message if not tracking_result.scrape_success else None
-                }
+                results.append(result)
                 
-            except Exception as e:
-                # Create error result - prioritize provided carrier name
-                result = {
-                    'pro_number': pro_number,
-                    'carrier': carrier_name or 'Unknown',
-                    'status': 'Tracking failed',
-                    'location': 'N/A',
-                    'timestamp': 'N/A',
-                    'success': False,
-                    'error_message': str(e)
-                }
+                # Small delay between requests
+                if i < len(pro_numbers) - 1:  # Don't delay after the last request
+                    await asyncio.sleep(0.5)  # Additional small delay for UI responsiveness
             
-            results.append(result)
-            
-            # Small delay between requests
-            if i < len(pro_numbers) - 1:  # Don't delay after the last request
-                time.sleep(0.5)  # Additional small delay for UI responsiveness
+            return results
+        
+        # Run the async tracking
+        results = asyncio.run(track_all_pros())
         
         # Complete progress
         progress_bar.progress(1.0)
-        status_text.text("Tracking complete!")
+        status_text.text("Tracking complete with Enhanced Zero-Cost System!")
         
         # Store results
         st.session_state.pro_tracking_results = results
         
     except Exception as e:
-        st.error(f"❌ Error during tracking: {str(e)}")
+        st.error(f"❌ Error during enhanced tracking: {str(e)}")
         # Store partial results if any
         if results:
             st.session_state.pro_tracking_results = results
     
     finally:
         try:
-            tracking_client.close()
+            tracking_client.cleanup()
         except:
             pass
 

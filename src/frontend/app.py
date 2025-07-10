@@ -2213,30 +2213,58 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
         if pro_numbers:
             st.info(f"🚛 Found {len(pro_numbers)} PRO numbers to track")
             
-            # Import tracking client
-            from src.backend.ltl_tracking_client import LTLTrackingClient
+            # Import enhanced tracking client with zero-cost anti-scraping
+            from src.backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
             
-            # Create tracking client
-            tracking_client = LTLTrackingClient(delay_between_requests=1, max_retries=2)
+            # Create enhanced tracking client
+            tracking_client = EnhancedLTLTrackingClient()
             
             # Track PRO numbers with progress
             tracking_progress = st.progress(0)
             tracking_status = st.empty()
             
             try:
-                for i, pro_info in enumerate(pro_numbers):
-                    # Update progress
-                    tracking_progress.progress(int((i / len(pro_numbers)) * 100))
-                    tracking_status.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_info['pro_number']}")
+                import asyncio
+                
+                # Create async function to handle tracking
+                async def track_all_pros():
+                    results = []
+                    for i, pro_info in enumerate(pro_numbers):
+                        # Update progress
+                        tracking_progress.progress(int((i / len(pro_numbers)) * 100))
+                        tracking_status.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_info['pro_number']}")
+                        
+                        # Track the PRO number using enhanced client
+                        result_dict = await tracking_client.track_shipment(pro_info['pro_number'])
+                        
+                        # Convert to legacy format for compatibility
+                        class TrackingResult:
+                            def __init__(self, result_dict):
+                                self.pro_number = result_dict.get('pro_number', '')
+                                self.carrier_name = result_dict.get('carrier', 'Unknown')
+                                self.tracking_status = result_dict.get('tracking_status', 'No status available')
+                                self.tracking_location = result_dict.get('tracking_location', 'No location available')
+                                self.tracking_event = result_dict.get('tracking_event', '')
+                                self.tracking_timestamp = result_dict.get('tracking_timestamp', 'No timestamp available')
+                                self.scrape_success = result_dict.get('status') == 'success'
+                                self.error_message = result_dict.get('message', '') if not self.scrape_success else ''
+                                self.scraped_data = result_dict
+                                # Additional attributes for load tracking
+                                self.load_id = None
+                                self.row_index = None
+                        
+                        result = TrackingResult(result_dict)
+                        result.load_id = pro_info['load_id']
+                        result.row_index = pro_info['row_index']
+                        results.append(result)
+                        
+                        # Small delay to avoid overwhelming carriers
+                        await asyncio.sleep(0.5)
                     
-                    # Track the PRO number
-                    result = tracking_client.track_pro_number(pro_info['pro_number'])
-                    result.load_id = pro_info['load_id']
-                    result.row_index = pro_info['row_index']
-                    tracking_results.append(result)
-                    
-                    # Small delay to avoid overwhelming carriers
-                    time.sleep(0.5)
+                    return results
+                
+                # Run the async tracking
+                tracking_results = asyncio.run(track_all_pros())
                 
                 # Clear tracking progress
                 tracking_progress.empty()
@@ -2244,13 +2272,13 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
                 
                 # Show tracking summary
                 successful_tracks = sum(1 for r in tracking_results if r.scrape_success)
-                st.success(f"✅ Successfully tracked {successful_tracks}/{len(pro_numbers)} PRO numbers")
+                st.success(f"✅ Successfully tracked {successful_tracks}/{len(pro_numbers)} PRO numbers (Enhanced Zero-Cost System)")
                 
             except Exception as e:
-                st.warning(f"⚠️ Error during tracking: {str(e)}")
+                st.warning(f"⚠️ Error during enhanced tracking: {str(e)}")
                 
             finally:
-                tracking_client.close()
+                tracking_client.cleanup()
         
         # Step 7: Process and save results
         update_progress("Saving results", 7, "Processing results and saving to database...")
