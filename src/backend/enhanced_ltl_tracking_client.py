@@ -10,8 +10,17 @@ import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
-from .zero_cost_anti_scraping import ZeroCostAntiScrapingSystem
-from .zero_cost_carriers import ZeroCostCarrierManager
+# Graceful imports for production compatibility
+try:
+    from .zero_cost_anti_scraping import ZeroCostAntiScrapingSystem
+    from .zero_cost_carriers import ZeroCostCarrierManager
+    ZERO_COST_AVAILABLE = True
+except ImportError as e:
+    print(f"Zero-cost modules not available: {e}")
+    ZERO_COST_AVAILABLE = False
+    ZeroCostAntiScrapingSystem = None
+    ZeroCostCarrierManager = None
+
 from .ltl_tracking_client import LTLTrackingClient
 from .carrier_detection import CarrierDetector
 
@@ -23,15 +32,20 @@ class EnhancedLTLTrackingClient:
         self.logger = logging.getLogger(__name__)
         
         # Initialize components
-        self.zero_cost_manager = ZeroCostCarrierManager()
+        if ZERO_COST_AVAILABLE and ZeroCostCarrierManager:
+            self.zero_cost_manager = ZeroCostCarrierManager()
+            self.use_zero_cost_first = True
+            self.logger.info("Enhanced LTL Tracking Client initialized with zero-cost anti-scraping")
+        else:
+            self.zero_cost_manager = None
+            self.use_zero_cost_first = False
+            self.logger.warning("Zero-cost modules not available - using legacy tracking only")
+        
         self.legacy_client = LTLTrackingClient()
         self.carrier_detector = CarrierDetector()
         
         # Configuration
-        self.use_zero_cost_first = True
         self.fallback_to_legacy = True
-        
-        self.logger.info("Enhanced LTL Tracking Client initialized with zero-cost anti-scraping")
     
     async def track_shipment(self, pro_number: str, carrier: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -63,7 +77,7 @@ class EnhancedLTLTrackingClient:
             self.logger.info(f"Tracking {pro_number} with carrier: {carrier}")
             
             # Try zero-cost method first
-            if self.use_zero_cost_first:
+            if self.use_zero_cost_first and self.zero_cost_manager:
                 result = await self._try_zero_cost_tracking(carrier, pro_number)
                 if result and result.get('status') == 'success':
                     self.logger.info(f"Zero-cost tracking successful for {pro_number}")
@@ -99,6 +113,14 @@ class EnhancedLTLTrackingClient:
     async def _try_zero_cost_tracking(self, carrier: str, pro_number: str) -> Dict[str, Any]:
         """Try zero-cost tracking method"""
         try:
+            # Check if zero-cost manager is available
+            if not self.zero_cost_manager:
+                return {
+                    'status': 'error',
+                    'message': 'Zero-cost tracking not available in this environment',
+                    'pro_number': pro_number
+                }
+            
             # Check if carrier is supported by zero-cost system
             supported_carriers = ['peninsula', 'fedex', 'estes']
             carrier_lower = carrier.lower()
@@ -288,6 +310,14 @@ class EnhancedLTLTrackingClient:
         try:
             self.logger.info("Testing zero-cost system functionality")
             
+            # Check if zero-cost manager is available
+            if not self.zero_cost_manager:
+                return {
+                    'status': 'error',
+                    'message': 'Zero-cost system not available in this environment',
+                    'timestamp': datetime.now().isoformat()
+                }
+            
             # Test each carrier
             test_results = {}
             test_pros = {
@@ -356,7 +386,8 @@ class EnhancedLTLTrackingClient:
     def cleanup(self):
         """Clean up resources"""
         try:
-            self.zero_cost_manager.cleanup()
+            if self.zero_cost_manager:
+                self.zero_cost_manager.cleanup()
             self.logger.info("Enhanced LTL Tracking Client cleaned up")
         except Exception as e:
             self.logger.error(f"Cleanup failed: {e}")
