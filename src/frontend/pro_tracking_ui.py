@@ -85,10 +85,14 @@ def _render_file_upload_step():
     """)
     
     # File upload
+    # Create unique key to avoid conflicts with main app file uploader
+    session_id = st.session_state.get('session_id', 'default')
+    uploader_key = f"pro_tracking_file_uploader_{session_id}"
+    
     uploaded_file = st.file_uploader(
         "Choose your tracking file",
         type=['csv', 'xlsx', 'xls'],
-        key="pro_tracking_file_uploader",
+        key=uploader_key,
         help="Upload a CSV or Excel file containing PRO numbers to track"
     )
     

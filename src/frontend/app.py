@@ -999,13 +999,13 @@ def _render_smart_actions():
     
     # Primary action based on workflow state - removed redundant Process Data button
     if uploaded_df is not None and not validation_passed:
-        if st.button("🔍 Validate Mapping", type="primary", use_container_width=True, key="primary_action"):
+        if st.button("🔍 Validate Mapping", type="primary", use_container_width=True, key="validate_mapping_action"):
             st.session_state.trigger_validation = True
     elif selected_configuration and uploaded_df is None:
         # Skip upload file action - it's redundant with main upload area
         pass
     elif not selected_configuration:
-        if st.button("⚙️ Setup Configuration", type="primary", use_container_width=True, key="primary_action"):
+        if st.button("⚙️ Setup Configuration", type="primary", use_container_width=True, key="setup_config_action"):
             st.session_state.focus_config = True
     
     # Compact secondary actions
@@ -1325,10 +1325,14 @@ def _render_landing_page():
 def _render_enhanced_file_upload():
     """Clean file upload area without unnecessary containers"""
     
+    # Create unique key to avoid conflicts with other tabs/components
+    session_id = st.session_state.get('session_id', 'default')
+    uploader_key = f"main_file_uploader_{session_id}"
+    
     uploaded_file = st.file_uploader(
         "Choose your file",
         type=['csv', 'xlsx', 'xls'],
-        key="main_file_uploader",
+        key=uploader_key,
         help="Maximum size: 200MB • Supported formats: CSV, Excel (.xlsx, .xls)"
     )
     
