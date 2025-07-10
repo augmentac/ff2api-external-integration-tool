@@ -17,38 +17,76 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from urllib.parse import urljoin, urlparse, quote
 
+# Import working tracking implementations
+try:
+    from .cloudflare_bypass_fedex_client import CloudFlareBypassFedExClient
+    CLOUDFLARE_FEDEX_AVAILABLE = True
+except ImportError:
+    CLOUDFLARE_FEDEX_AVAILABLE = False
+    CloudFlareBypassFedExClient = None
+
+try:
+    from .zero_cost_carriers import ZeroCostCarrierManager
+    ZERO_COST_AVAILABLE = True
+except ImportError:
+    ZERO_COST_AVAILABLE = False
+    ZeroCostCarrierManager = None
+
+try:
+    from .apple_silicon_estes_client import AppleSiliconEstesClient
+    APPLE_SILICON_AVAILABLE = True
+except ImportError:
+    APPLE_SILICON_AVAILABLE = False
+    AppleSiliconEstesClient = None
+
 logger = logging.getLogger(__name__)
 
 class WorkingCloudTracker:
     """
     Working cloud tracking system that actually retrieves tracking data
+    Uses the best available tracking implementations for each carrier
     """
     
     def __init__(self):
         self.session = requests.Session()
         self.setup_session()
         
+        # Initialize working tracking clients
+        try:
+            self.fedex_client = CloudFlareBypassFedExClient() if CLOUDFLARE_FEDEX_AVAILABLE else None
+        except Exception as e:
+            logger.warning(f"Failed to initialize FedEx client: {e}")
+            self.fedex_client = None
+            
+        try:
+            self.zero_cost_manager = ZeroCostCarrierManager() if ZERO_COST_AVAILABLE else None
+        except Exception as e:
+            logger.warning(f"Failed to initialize ZeroCost manager: {e}")
+            self.zero_cost_manager = None
+            
+        try:
+            self.estes_client = AppleSiliconEstesClient() if APPLE_SILICON_AVAILABLE else None
+        except Exception as e:
+            logger.warning(f"Failed to initialize Estes client: {e}")
+            self.estes_client = None
+        
         # Track successful methods for optimization
         self.successful_methods = {}
         
+        logger.info("🚀 Working Cloud Tracker initialized")
+        logger.info(f"📦 FedEx Client: {'Available' if self.fedex_client else 'Not Available'}")
+        logger.info(f"🏢 Zero-Cost Manager: {'Available' if self.zero_cost_manager else 'Not Available'}")
+        logger.info(f"🚛 Estes Client: {'Available' if self.estes_client else 'Not Available'}")
+    
     def setup_session(self):
-        """Setup session with realistic headers that work"""
+        """Setup HTTP session with realistic headers"""
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"macOS"',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
         })
     
     async def track_shipment(self, tracking_number: str, carrier: str) -> Dict[str, Any]:
@@ -71,13 +109,32 @@ class WorkingCloudTracker:
     
     async def track_estes_working(self, tracking_number: str) -> Dict[str, Any]:
         """
-        Working Estes tracking that actually retrieves data
-        Adapted from AppleSiliconEstesClient but cloud-compatible
+        Working Estes tracking using Apple Silicon client or fallback methods
         """
         carrier = "Estes Express"
-        logger.info(f"📦 Working Estes tracking for: {tracking_number}")
+        logger.info(f"🚛 Working Estes tracking for: {tracking_number}")
         
-        # Method 1: Direct form submission (most reliable for cloud)
+        # Method 1: Use Apple Silicon client if available
+        if self.estes_client:
+            try:
+                logger.info("🍎 Trying Apple Silicon Estes client...")
+                result = await self.estes_client.track_shipment(tracking_number)
+                if result.get('success'):
+                    logger.info("✅ Apple Silicon Estes client successful")
+                    return {
+                        'success': True,
+                        'tracking_number': tracking_number,
+                        'carrier': carrier,
+                        'status': result.get('status', 'Tracking data found'),
+                        'location': result.get('location', 'Location available'),
+                        'events': result.get('events', []),
+                        'timestamp': time.time(),
+                        'method': 'Apple Silicon Estes Client'
+                    }
+            except Exception as e:
+                logger.warning(f"Apple Silicon Estes client failed: {e}")
+        
+        # Method 2: Form submission method
         try:
             result = await self.track_estes_form_submission(tracking_number)
             if result.get('success'):
@@ -86,7 +143,7 @@ class WorkingCloudTracker:
         except Exception as e:
             logger.warning(f"Estes form submission failed: {e}")
         
-        # Method 2: Mobile endpoints (works in cloud)
+        # Method 3: Mobile endpoints
         try:
             result = await self.track_estes_mobile_endpoints(tracking_number)
             if result.get('success'):
@@ -95,7 +152,7 @@ class WorkingCloudTracker:
         except Exception as e:
             logger.warning(f"Estes mobile endpoints failed: {e}")
         
-        # Method 3: API endpoints with proper headers
+        # Method 4: API endpoints
         try:
             result = await self.track_estes_api_endpoints(tracking_number)
             if result.get('success'):
@@ -104,7 +161,7 @@ class WorkingCloudTracker:
         except Exception as e:
             logger.warning(f"Estes API endpoints failed: {e}")
         
-        # Method 4: Screen scraping with session management
+        # Method 5: Screen scraping
         try:
             result = await self.track_estes_screen_scraping(tracking_number)
             if result.get('success'):
@@ -116,7 +173,7 @@ class WorkingCloudTracker:
         # All methods failed
         return {
             'success': False,
-            'error': 'All Estes tracking methods failed after attempting 4 approaches',
+            'error': 'All Estes tracking methods failed after attempting 5 approaches',
             'status': 'No status available',
             'location': 'No location available',
             'events': [],
@@ -462,120 +519,31 @@ class WorkingCloudTracker:
     
     async def track_fedex_working(self, tracking_number: str) -> Dict[str, Any]:
         """
-        Working FedEx tracking adapted from CloudFlare bypass methods
+        Working FedEx tracking using CloudFlare bypass client
         """
         carrier = "FedEx Freight"
         logger.info(f"📦 Working FedEx tracking for: {tracking_number}")
         
-        # Method 1: Mobile API endpoints (less protected)
-        try:
-            result = await self.track_fedex_mobile_api(tracking_number)
-            if result.get('success'):
-                logger.info("✅ FedEx mobile API successful")
-                return result
-        except Exception as e:
-            logger.warning(f"FedEx mobile API failed: {e}")
-        
-        # Method 2: GraphQL endpoints
-        try:
-            result = await self.track_fedex_graphql(tracking_number)
-            if result.get('success'):
-                logger.info("✅ FedEx GraphQL successful")
-                return result
-        except Exception as e:
-            logger.warning(f"FedEx GraphQL failed: {e}")
-        
-        # Method 3: Legacy tracking endpoints
-        try:
-            result = await self.track_fedex_legacy(tracking_number)
-            if result.get('success'):
-                logger.info("✅ FedEx legacy tracking successful")
-                return result
-        except Exception as e:
-            logger.warning(f"FedEx legacy tracking failed: {e}")
-        
-        # All methods failed
-        return {
-            'success': False,
-            'error': 'All FedEx tracking methods failed - mobile API, GraphQL, and legacy endpoints returned no data',
-            'status': 'No status available',
-            'location': 'No location available',
-            'events': [],
-            'carrier': carrier,
-            'tracking_number': tracking_number,
-            'timestamp': time.time()
-        }
-    
-    async def track_fedex_mobile_api(self, tracking_number: str) -> Dict[str, Any]:
-        """Try FedEx mobile API endpoints"""
-        try:
-            mobile_endpoints = [
-                f"https://mobile.fedex.com/api/track/{tracking_number}",
-                f"https://m.fedex.com/api/tracking/{tracking_number}",
-                f"https://api.fedex.com/mobile/v1/track/{tracking_number}"
-            ]
-            
-            mobile_headers = {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-            
-            for endpoint in mobile_endpoints:
-                try:
-                    response = self.session.get(endpoint, headers=mobile_headers, timeout=10)
-                    if response.status_code == 200:
-                        data = response.json()
-                        result = self.parse_fedex_api_response(data, tracking_number)
-                        if result.get('success'):
-                            return result
-                except:
-                    continue
-            
-            return {'success': False, 'error': 'No mobile API endpoints responded'}
-            
-        except Exception as e:
-            return {'success': False, 'error': f'Mobile API error: {str(e)}'}
-    
-    async def track_fedex_graphql(self, tracking_number: str) -> Dict[str, Any]:
-        """Try FedEx GraphQL endpoints"""
-        try:
-            graphql_query = {
-                "query": f"""
-                query {{
-                    trackingInfo(trackingNumber: "{tracking_number}") {{
-                        status
-                        location
-                        events {{
-                            date
-                            description
-                            location
-                        }}
-                    }}
-                }}
-                """
-            }
-            
-            response = self.session.post(
-                "https://www.fedex.com/graphql",
-                json=graphql_query,
-                headers={'Content-Type': 'application/json'},
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                result = self.parse_fedex_api_response(data, tracking_number)
+        if self.fedex_client:
+            try:
+                logger.info("🚚 Trying CloudFlare Bypass FedEx client...")
+                result = await self.fedex_client.track_shipment(tracking_number)
                 if result.get('success'):
-                    return result
-            
-            return {'success': False, 'error': 'GraphQL query failed'}
-            
-        except Exception as e:
-            return {'success': False, 'error': f'GraphQL error: {str(e)}'}
-    
-    async def track_fedex_legacy(self, tracking_number: str) -> Dict[str, Any]:
-        """Try FedEx legacy tracking endpoints"""
+                    logger.info("✅ CloudFlare Bypass FedEx client successful")
+                    return {
+                        'success': True,
+                        'tracking_number': tracking_number,
+                        'carrier': carrier,
+                        'status': result.get('status', 'Tracking data found'),
+                        'location': result.get('location', 'Location available'),
+                        'events': result.get('events', []),
+                        'timestamp': time.time(),
+                        'method': 'CloudFlare Bypass FedEx Client'
+                    }
+            except Exception as e:
+                logger.warning(f"CloudFlare Bypass FedEx client failed: {e}")
+        
+        # Fallback to legacy endpoints if CloudFlare client is not available
         try:
             legacy_endpoints = [
                 f"https://www.fedex.com/apps/fedextrack/?action=track&trackingnumber={tracking_number}",
@@ -592,10 +560,19 @@ class WorkingCloudTracker:
                 except:
                     continue
             
-            return {'success': False, 'error': 'No legacy endpoints responded'}
+            return {
+                'success': False,
+                'error': 'All FedEx tracking methods failed - CloudFlare client and legacy endpoints returned no data',
+                'status': 'No status available',
+                'location': 'No location available',
+                'events': [],
+                'carrier': carrier,
+                'tracking_number': tracking_number,
+                'timestamp': time.time()
+            }
             
         except Exception as e:
-            return {'success': False, 'error': f'Legacy tracking error: {str(e)}'}
+            return {'success': False, 'error': f'FedEx tracking error: {str(e)}'}
     
     def parse_fedex_api_response(self, data: Dict, tracking_number: str) -> Dict[str, Any]:
         """Parse FedEx API response"""
@@ -641,74 +618,31 @@ class WorkingCloudTracker:
     
     async def track_peninsula_working(self, tracking_number: str) -> Dict[str, Any]:
         """
-        Working Peninsula tracking implementation
+        Working Peninsula tracking using ZeroCostCarrierManager
         """
         carrier = "Peninsula Truck Lines"
         logger.info(f"📦 Working Peninsula tracking for: {tracking_number}")
         
-        # Method 1: Try direct API endpoints
-        try:
-            result = await self.track_peninsula_api(tracking_number)
-            if result.get('success'):
-                logger.info("✅ Peninsula API successful")
-                return result
-        except Exception as e:
-            logger.warning(f"Peninsula API failed: {e}")
+        if self.zero_cost_manager:
+            try:
+                logger.info("🚚 Trying ZeroCost Peninsula client...")
+                result = await self.zero_cost_manager.track_shipment(carrier, tracking_number)
+                if result.get('status') == 'success':
+                    logger.info("✅ ZeroCost Peninsula client successful")
+                    return {
+                        'success': True,
+                        'tracking_number': tracking_number,
+                        'carrier': carrier,
+                        'status': result.get('status', 'Tracking data found'),
+                        'location': result.get('location', 'Location available'),
+                        'events': result.get('events', []),
+                        'timestamp': time.time(),
+                        'method': 'ZeroCost Peninsula Client'
+                    }
+            except Exception as e:
+                logger.warning(f"ZeroCost Peninsula client failed: {e}")
         
-        # Method 2: Try form submission
-        try:
-            result = await self.track_peninsula_form(tracking_number)
-            if result.get('success'):
-                logger.info("✅ Peninsula form submission successful")
-                return result
-        except Exception as e:
-            logger.warning(f"Peninsula form submission failed: {e}")
-        
-        # All methods failed
-        return {
-            'success': False,
-            'error': 'All Peninsula tracking methods failed - API endpoints and form submission returned no data',
-            'status': 'No status available',
-            'location': 'No location available',
-            'events': [],
-            'carrier': carrier,
-            'tracking_number': tracking_number,
-            'timestamp': time.time()
-        }
-    
-    async def track_peninsula_api(self, tracking_number: str) -> Dict[str, Any]:
-        """Try Peninsula API endpoints"""
-        try:
-            api_endpoints = [
-                f"https://www.peninsulatruck.com/api/track/{tracking_number}",
-                f"https://api.peninsulatruck.com/v1/track/{tracking_number}"
-            ]
-            
-            for endpoint in api_endpoints:
-                try:
-                    response = self.session.get(endpoint, timeout=10)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data and isinstance(data, dict):
-                            return {
-                                'success': True,
-                                'tracking_number': tracking_number,
-                                'carrier': 'Peninsula Truck Lines',
-                                'status': data.get('status', 'Status available'),
-                                'location': data.get('location', 'Location available'),
-                                'events': data.get('events', []),
-                                'timestamp': time.time()
-                            }
-                except:
-                    continue
-            
-            return {'success': False, 'error': 'No Peninsula API endpoints responded'}
-            
-        except Exception as e:
-            return {'success': False, 'error': f'Peninsula API error: {str(e)}'}
-    
-    async def track_peninsula_form(self, tracking_number: str) -> Dict[str, Any]:
-        """Try Peninsula form submission"""
+        # Fallback to form submission if ZeroCost client is not available
         try:
             # Visit tracking page and submit form
             tracking_url = "https://www.peninsulatruck.com/tracking"
@@ -722,88 +656,54 @@ class WorkingCloudTracker:
                     return {
                         'success': True,
                         'tracking_number': tracking_number,
-                        'carrier': 'Peninsula Truck Lines',
+                        'carrier': carrier,
                         'status': 'Tracking data found',
                         'location': 'Location data found',
                         'events': [],
                         'timestamp': time.time()
                     }
             
-            return {'success': False, 'error': 'Peninsula form submission failed'}
+            return {
+                'success': False,
+                'error': 'All Peninsula tracking methods failed - ZeroCost client and form submission returned no data',
+                'status': 'No status available',
+                'location': 'No location available',
+                'events': [],
+                'carrier': carrier,
+                'tracking_number': tracking_number,
+                'timestamp': time.time()
+            }
             
         except Exception as e:
-            return {'success': False, 'error': f'Peninsula form error: {str(e)}'}
+            return {'success': False, 'error': f'Peninsula tracking error: {str(e)}'}
     
     async def track_rl_working(self, tracking_number: str) -> Dict[str, Any]:
         """
-        Working R&L tracking implementation
+        Working R&L tracking using ZeroCostCarrierManager
         """
         carrier = "R&L Carriers"
         logger.info(f"📦 Working R&L tracking for: {tracking_number}")
         
-        # Method 1: Try direct API endpoints
-        try:
-            result = await self.track_rl_api(tracking_number)
-            if result.get('success'):
-                logger.info("✅ R&L API successful")
-                return result
-        except Exception as e:
-            logger.warning(f"R&L API failed: {e}")
+        if self.zero_cost_manager:
+            try:
+                logger.info("🚚 Trying ZeroCost R&L client...")
+                result = await self.zero_cost_manager.track_shipment(carrier, tracking_number)
+                if result.get('status') == 'success':
+                    logger.info("✅ ZeroCost R&L client successful")
+                    return {
+                        'success': True,
+                        'tracking_number': tracking_number,
+                        'carrier': carrier,
+                        'status': result.get('status', 'Tracking data found'),
+                        'location': result.get('location', 'Location available'),
+                        'events': result.get('events', []),
+                        'timestamp': time.time(),
+                        'method': 'ZeroCost R&L Client'
+                    }
+            except Exception as e:
+                logger.warning(f"ZeroCost R&L client failed: {e}")
         
-        # Method 2: Try form submission
-        try:
-            result = await self.track_rl_form(tracking_number)
-            if result.get('success'):
-                logger.info("✅ R&L form submission successful")
-                return result
-        except Exception as e:
-            logger.warning(f"R&L form submission failed: {e}")
-        
-        # All methods failed
-        return {
-            'success': False,
-            'error': 'All R&L tracking methods failed - API endpoints and form submission returned no data',
-            'status': 'No status available',
-            'location': 'No location available',
-            'events': [],
-            'carrier': carrier,
-            'tracking_number': tracking_number,
-            'timestamp': time.time()
-        }
-    
-    async def track_rl_api(self, tracking_number: str) -> Dict[str, Any]:
-        """Try R&L API endpoints"""
-        try:
-            api_endpoints = [
-                f"https://www.rlcarriers.com/api/track/{tracking_number}",
-                f"https://api.rlcarriers.com/v1/track/{tracking_number}"
-            ]
-            
-            for endpoint in api_endpoints:
-                try:
-                    response = self.session.get(endpoint, timeout=10)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data and isinstance(data, dict):
-                            return {
-                                'success': True,
-                                'tracking_number': tracking_number,
-                                'carrier': 'R&L Carriers',
-                                'status': data.get('status', 'Status available'),
-                                'location': data.get('location', 'Location available'),
-                                'events': data.get('events', []),
-                                'timestamp': time.time()
-                            }
-                except:
-                    continue
-            
-            return {'success': False, 'error': 'No R&L API endpoints responded'}
-            
-        except Exception as e:
-            return {'success': False, 'error': f'R&L API error: {str(e)}'}
-    
-    async def track_rl_form(self, tracking_number: str) -> Dict[str, Any]:
-        """Try R&L form submission"""
+        # Fallback to form submission if ZeroCost client is not available
         try:
             # Visit tracking page and submit form
             tracking_url = "https://www.rlcarriers.com/tracking"
@@ -817,17 +717,26 @@ class WorkingCloudTracker:
                     return {
                         'success': True,
                         'tracking_number': tracking_number,
-                        'carrier': 'R&L Carriers',
+                        'carrier': carrier,
                         'status': 'Tracking data found',
                         'location': 'Location data found',
                         'events': [],
                         'timestamp': time.time()
                     }
             
-            return {'success': False, 'error': 'R&L form submission failed'}
+            return {
+                'success': False,
+                'error': 'All R&L tracking methods failed - ZeroCost client and form submission returned no data',
+                'status': 'No status available',
+                'location': 'No location available',
+                'events': [],
+                'carrier': carrier,
+                'tracking_number': tracking_number,
+                'timestamp': time.time()
+            }
             
         except Exception as e:
-            return {'success': False, 'error': f'R&L form error: {str(e)}'}
+            return {'success': False, 'error': f'R&L tracking error: {str(e)}'}
     
     async def track_generic_working(self, tracking_number: str, carrier: str) -> Dict[str, Any]:
         """
