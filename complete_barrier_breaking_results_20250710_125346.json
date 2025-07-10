@@ -1,0 +1,123 @@
+{
+  "test_summary": {
+    "total_tests": 8,
+    "total_successes": 4,
+    "overall_success_rate": 50.0,
+    "carrier_rates": {
+      "Estes Express": 100.0,
+      "R&L Carriers": 0.0,
+      "Peninsula": 100.0,
+      "FedEx Freight": 0.0
+    },
+    "barriers_solved": [
+      "ARM64 CPU Architecture"
+    ]
+  },
+  "detailed_results": [
+    {
+      "carrier": "Estes Express",
+      "pro": "0628143046",
+      "expected": "delivered",
+      "success": true,
+      "status": "destination",
+      "error": "No error",
+      "method": "Apple Silicon Breakthrough",
+      "barrier_solved": "ARM64 CPU Architecture",
+      "details_count": 89,
+      "duration": 17.147117137908936,
+      "timestamp": "2025-07-10T12:52:44.124524"
+    },
+    {
+      "carrier": "Estes Express",
+      "pro": "1234567890",
+      "expected": "not_found",
+      "success": true,
+      "status": "destination",
+      "error": "No error",
+      "method": "Apple Silicon Breakthrough",
+      "barrier_solved": "ARM64 CPU Architecture",
+      "details_count": 77,
+      "duration": 15.121671915054321,
+      "timestamp": "2025-07-10T12:53:01.246639"
+    },
+    {
+      "carrier": "R&L Carriers",
+      "pro": "123456789",
+      "expected": "active",
+      "success": false,
+      "status": "Unknown",
+      "error": "Legacy system not available",
+      "method": "Unknown",
+      "barrier_solved": null,
+      "details_count": 0,
+      "duration": 9.608268737792969e-05,
+      "timestamp": "2025-07-10T12:53:03.248036"
+    },
+    {
+      "carrier": "R&L Carriers",
+      "pro": "987654321",
+      "expected": "test",
+      "success": false,
+      "status": "Unknown",
+      "error": "Legacy system not available",
+      "method": "Unknown",
+      "barrier_solved": null,
+      "details_count": 0,
+      "duration": 0.0002448558807373047,
+      "timestamp": "2025-07-10T12:53:05.249479"
+    },
+    {
+      "carrier": "Peninsula",
+      "pro": "TEST123",
+      "expected": "auth_required",
+      "success": true,
+      "status": "destination",
+      "error": "No error",
+      "method": "Apple Silicon Breakthrough",
+      "barrier_solved": "ARM64 CPU Architecture",
+      "details_count": 31,
+      "duration": 13.963236093521118,
+      "timestamp": "2025-07-10T12:53:21.214101"
+    },
+    {
+      "carrier": "Peninsula",
+      "pro": "DEMO456",
+      "expected": "auth_required",
+      "success": true,
+      "status": "destination",
+      "error": "No error",
+      "method": "Apple Silicon Breakthrough",
+      "barrier_solved": "ARM64 CPU Architecture",
+      "details_count": 31,
+      "duration": 17.311843872070312,
+      "timestamp": "2025-07-10T12:53:40.527238"
+    },
+    {
+      "carrier": "FedEx Freight",
+      "pro": "123456789",
+      "expected": "cloudflare_blocked",
+      "success": false,
+      "status": "Unknown",
+      "error": "Legacy system not available",
+      "method": "Unknown",
+      "barrier_solved": null,
+      "details_count": 0,
+      "duration": 0.00013399124145507812,
+      "timestamp": "2025-07-10T12:53:42.528676"
+    },
+    {
+      "carrier": "FedEx Freight",
+      "pro": "987654321",
+      "expected": "cloudflare_blocked",
+      "success": false,
+      "status": "Unknown",
+      "error": "Legacy system not available",
+      "method": "Unknown",
+      "barrier_solved": null,
+      "details_count": 0,
+      "duration": 0.00028586387634277344,
+      "timestamp": "2025-07-10T12:53:44.530247"
+    }
+  ],
+  "timestamp": "2025-07-10T12:53:46.532355"
+}

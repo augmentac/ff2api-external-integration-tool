@@ -186,20 +186,18 @@ class CloudFlareBypassFedExClient:
         logger.error("❌ All CloudFlare bypass attempts failed")
         return None
     
-    async def track_with_playwright_cf_bypass(self, tracking_number: str) -> Dict:
-        """Track using Playwright with CloudFlare bypass techniques"""
+    async def track_with_playwright(self, tracking_number: str) -> Dict:
+        """Track using Playwright with CloudFlare bypass and enhanced wait conditions"""
         try:
             async with async_playwright() as p:
-                # Use Chrome with stealth mode
                 browser = await p.chromium.launch(
-                    headless=True,
+                    headless=False,  # Show browser for debugging
                     args=[
                         '--no-sandbox',
                         '--disable-dev-shm-usage',
                         '--disable-gpu',
                         '--disable-extensions',
                         '--disable-blink-features=AutomationControlled',
-                        '--disable-features=VizDisplayCompositor',
                         '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                     ]
                 )
@@ -208,118 +206,237 @@ class CloudFlareBypassFedExClient:
                     user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     viewport={'width': 1920, 'height': 1080},
                     extra_http_headers={
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
                         'Accept-Language': 'en-US,en;q=0.9',
-                        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-                        'sec-ch-ua-mobile': '?0',
-                        'sec-ch-ua-platform': '"macOS"'
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1'
                     }
                 )
                 
                 page = await context.new_page()
                 
-                # Add stealth scripts
-                await page.add_init_script("""
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => undefined,
-                    });
-                    
-                    Object.defineProperty(navigator, 'plugins', {
-                        get: () => [1, 2, 3, 4, 5],
-                    });
-                    
-                    Object.defineProperty(navigator, 'languages', {
-                        get: () => ['en-US', 'en'],
-                    });
-                    
-                    window.chrome = {
-                        runtime: {}
-                    };
-                """)
+                # Navigate to FedEx Freight tracking page
+                logger.info("🌐 Navigating to FedEx Freight tracking page...")
+                await page.goto('https://www.fedex.com/en-us/tracking.html')
                 
-                # Try FedEx tracking page
-                tracking_urls = [
-                    'https://www.fedex.com/fedextrack/',
-                    'https://www.fedex.com/en-us/tracking.html',
-                    'https://www.fedex.com/apps/fedextrack/'
+                # Wait for CloudFlare and page to load
+                logger.info("⏳ Waiting for CloudFlare bypass and page load...")
+                await page.wait_for_load_state('networkidle')
+                await page.wait_for_timeout(8000)  # Extended wait for CloudFlare + React initialization
+                
+                # Look for the tracking input field
+                logger.info("🔍 Looking for tracking input field...")
+                
+                # Try multiple selectors for the tracking input
+                tracking_input_selectors = [
+                    'input[data-testid="TrackingNumberTextInput"]',
+                    'input[name="trackingnumber"]',
+                    'input[placeholder*="tracking"]',
+                    'input[placeholder*="number"]',
+                    'input[type="text"]',
+                    '#trackingNumber',
+                    '.tracking-input'
                 ]
                 
-                for url in tracking_urls:
+                tracking_input = None
+                for selector in tracking_input_selectors:
                     try:
-                        logger.info(f"Trying FedEx URL: {url}")
-                        await page.goto(url, wait_until='networkidle')
-                        
-                        # Wait for potential CloudFlare challenge
-                        await asyncio.sleep(5)
-                        
-                        # Check if we're on a CloudFlare challenge page
-                        page_content = await page.content()
-                        if any(indicator in page_content.lower() for indicator in ['checking your browser', 'cloudflare', 'ray id']):
-                            logger.warning("CloudFlare challenge detected, waiting...")
-                            await asyncio.sleep(10)
-                            await page.wait_for_load_state('networkidle')
-                        
-                        # Look for tracking input
-                        tracking_selectors = [
-                            'input[name*="track"]',
-                            'input[id*="track"]',
-                            'input[placeholder*="track"]',
-                            'input[data-test-id*="track"]',
-                            '#trackingNumber',
-                            '[data-testid="trackingNumber"]'
-                        ]
-                        
-                        tracking_input = None
-                        for selector in tracking_selectors:
-                            try:
-                                tracking_input = await page.wait_for_selector(selector, timeout=5000)
-                                if tracking_input:
-                                    break
-                            except:
-                                continue
-                        
+                        tracking_input = await page.wait_for_selector(selector, timeout=10000)
                         if tracking_input:
-                            await tracking_input.fill(tracking_number)
-                            
-                            # Look for submit button
-                            submit_selectors = [
-                                'button[type="submit"]',
-                                'input[type="submit"]',
-                                'button:has-text("Track")',
-                                '[data-testid="track-button"]',
-                                '.track-button'
-                            ]
-                            
-                            for selector in submit_selectors:
-                                try:
-                                    submit_button = await page.wait_for_selector(selector, timeout=3000)
-                                    if submit_button:
-                                        await submit_button.click()
-                                        break
-                                except:
-                                    continue
-                            
-                            # Wait for results
-                            await page.wait_for_load_state('networkidle')
-                            await asyncio.sleep(3)
-                            
-                            # Parse results
-                            content = await page.content()
-                            result = self.parse_tracking_results(content, tracking_number)
-                            
-                            if result.get('success'):
-                                await browser.close()
-                                return result
-                        
-                    except Exception as e:
-                        logger.warning(f"Error with URL {url}: {e}")
+                            logger.info(f"✅ Found tracking input with selector: {selector}")
+                            break
+                    except:
                         continue
                 
+                if not tracking_input:
+                    logger.warning("❌ No tracking input found")
+                    await browser.close()
+                    return {'success': False, 'error': 'Tracking input not found'}
+                
+                # Enter the tracking number
+                logger.info(f"📝 Entering tracking number: {tracking_number}")
+                await tracking_input.click()
+                await tracking_input.fill(tracking_number)
+                
+                # Look for the submit button
+                logger.info("🔍 Looking for submit button...")
+                submit_button_selectors = [
+                    'button[data-testid="TrackingNumberSubmit"]',
+                    'button[type="submit"]',
+                    'button:has-text("Track")',
+                    'button:has-text("Search")',
+                    '.track-button',
+                    '.submit-button'
+                ]
+                
+                submit_button = None
+                for selector in submit_button_selectors:
+                    try:
+                        submit_button = await page.wait_for_selector(selector, timeout=5000)
+                        if submit_button:
+                            logger.info(f"✅ Found submit button with selector: {selector}")
+                            break
+                    except:
+                        continue
+                
+                if not submit_button:
+                    logger.warning("❌ Submit button not found")
+                    await browser.close()
+                    return {'success': False, 'error': 'Submit button not found'}
+                
+                # Click the submit button
+                logger.info("🚀 Clicking submit button...")
+                await submit_button.click()
+                
+                # ENHANCED WAIT CONDITIONS: Wait for actual tracking results to load
+                logger.info("⏳ Waiting for tracking results with enhanced detection...")
+                
+                # Wait for initial network activity to settle
+                await page.wait_for_load_state('networkidle')
+                
+                # Wait for tracking results with multiple detection strategies
+                tracking_data_loaded = False
+                max_wait_time = 60  # Extended to 60 seconds for FedEx (CloudFlare + React + API calls)
+                check_interval = 3  # Check every 3 seconds
+                
+                for attempt in range(max_wait_time // check_interval):
+                    logger.info(f"🔍 Checking for tracking data (attempt {attempt + 1}/{max_wait_time // check_interval})...")
+                    
+                    # Strategy 1: Check for specific FedEx tracking result elements
+                    fedex_result_selectors = [
+                        '[data-testid*="tracking"]',
+                        '[data-testid*="shipment"]',
+                        '[data-testid*="delivery"]',
+                        '.tracking-results',
+                        '.shipment-details',
+                        '.tracking-info',
+                        '.delivery-status',
+                        '.shipment-status',
+                        '[class*="tracking-result"]',
+                        '[class*="shipment-detail"]',
+                        '.tracking-summary',
+                        '.delivery-info',
+                        '.freight-details',
+                        '.tracking-container'
+                    ]
+                    
+                    for selector in fedex_result_selectors:
+                        try:
+                            result_elements = await page.query_selector_all(selector)
+                            for result_element in result_elements:
+                                if await result_element.is_visible():
+                                    text_content = await result_element.text_content()
+                                    if text_content and len(text_content.strip()) > 15:
+                                        # Check if it contains meaningful tracking data
+                                        tracking_keywords = ['delivered', 'transit', 'pickup', 'destination', 'origin', 'status', 'freight', tracking_number]
+                                        if any(keyword.lower() in text_content.lower() for keyword in tracking_keywords):
+                                            logger.info(f"✅ Found tracking data in element: {selector}")
+                                            tracking_data_loaded = True
+                                            break
+                            if tracking_data_loaded:
+                                break
+                        except:
+                            continue
+                    
+                    if tracking_data_loaded:
+                        break
+                    
+                    # Strategy 2: Check for disappearance of loading indicators
+                    loading_selectors = [
+                        '.loading',
+                        '.spinner',
+                        '[class*="loading"]',
+                        '[class*="spinner"]',
+                        '.progress',
+                        '[aria-label*="loading"]',
+                        '[data-testid*="loading"]',
+                        '.fedex-loading'
+                    ]
+                    
+                    loading_present = False
+                    for selector in loading_selectors:
+                        try:
+                            loading_elements = await page.query_selector_all(selector)
+                            for loading_element in loading_elements:
+                                if await loading_element.is_visible():
+                                    loading_present = True
+                                    break
+                            if loading_present:
+                                break
+                        except:
+                            continue
+                    
+                    if not loading_present:
+                        # No loading indicators, check if we have meaningful content
+                        page_content = await page.content()
+                        if tracking_number in page_content and len(page_content) > 15000:
+                            # Page has substantial content including our tracking number
+                            logger.info("✅ Loading indicators gone and substantial content present")
+                            tracking_data_loaded = True
+                            break
+                    
+                    # Strategy 3: Monitor for AJAX completion by checking network activity
+                    try:
+                        await page.wait_for_load_state('networkidle', timeout=3000)
+                        # If we reach networkidle, check if we have tracking data
+                        current_content = await page.content()
+                        if tracking_number in current_content:
+                            content_length = len(current_content)
+                            if content_length > 20000:  # Substantial content suggests data loaded
+                                # Check for FedEx-specific tracking indicators
+                                fedex_indicators = ['shipment', 'delivery', 'status', 'location', 'tracking', 'freight', 'fedex']
+                                indicator_count = sum(1 for indicator in fedex_indicators if indicator in current_content.lower())
+                                if indicator_count >= 4:  # Multiple FedEx indicators suggest real data
+                                    logger.info(f"✅ Network idle with FedEx tracking indicators ({content_length} chars, {indicator_count} indicators)")
+                                    tracking_data_loaded = True
+                                    break
+                    except:
+                        pass  # Timeout is expected, continue checking
+                    
+                    # Strategy 4: Check for specific FedEx tracking status messages
+                    try:
+                        # Look for common FedEx status messages
+                        status_messages = [
+                            'Delivered',
+                            'In transit',
+                            'Out for delivery',
+                            'Picked up',
+                            'At destination sort facility',
+                            'Departed FedEx location',
+                            'Arrived at FedEx location'
+                        ]
+                        
+                        current_content = await page.content()
+                        for status in status_messages:
+                            if status.lower() in current_content.lower():
+                                logger.info(f"✅ Found FedEx status message: {status}")
+                                tracking_data_loaded = True
+                                break
+                        
+                        if tracking_data_loaded:
+                            break
+                    except:
+                        pass
+                    
+                    # Wait before next check
+                    await page.wait_for_timeout(check_interval * 1000)
+                
+                if not tracking_data_loaded:
+                    logger.warning(f"⚠️ Tracking data detection timeout after {max_wait_time} seconds, proceeding with available content")
+                else:
+                    logger.info("✅ Tracking data successfully detected and loaded")
+                
+                # Additional wait to ensure all data is fully rendered
+                await page.wait_for_timeout(8000)
+                
+                # Parse results
+                content = await page.content()
                 await browser.close()
-                return {'success': False, 'error': 'Could not find tracking form on any FedEx page'}
+                
+                return self.parse_tracking_results(content, tracking_number)
                 
         except Exception as e:
-            logger.error(f"Playwright CloudFlare bypass failed: {e}")
+            logger.error(f"Playwright CloudFlare bypass tracking failed: {e}")
             return {'success': False, 'error': str(e)}
     
     def track_with_curl_cffi(self, tracking_number: str) -> Dict:
@@ -687,7 +804,7 @@ class CloudFlareBypassFedExClient:
         
         methods = [
             ("curl-cffi TLS Bypass", self.track_with_curl_cffi),
-            ("Playwright CF Bypass", self.track_with_playwright_cf_bypass),
+            ("Playwright CF Bypass", self.track_with_playwright),
             ("Selenium CF Bypass", lambda tn: self.track_with_selenium_cf_bypass(tn)),
             ("Mobile Endpoints", self.track_with_mobile_endpoints)
         ]

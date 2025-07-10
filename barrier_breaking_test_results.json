@@ -1,0 +1,488 @@
+{
+  "test_suite": "Barrier-Breaking Tracking System",
+  "total_tests": 5,
+  "passed_tests": 4,
+  "failed_tests": 1,
+  "success_rate": 80.0,
+  "elapsed_time": 318.41074991226196,
+  "timestamp": "2025-07-10T11:33:02.192001",
+  "individual_results": [
+    {
+      "test_name": "System Initialization",
+      "success": true,
+      "details": {
+        "system_name": "Barrier-Breaking Tracking System",
+        "version": "1.0.0",
+        "capabilities": {
+          "apple_silicon_estes": true,
+          "cloudflare_bypass_fedex": true,
+          "legacy_fallback": false,
+          "concurrent_tracking": true
+        },
+        "barriers_solved": [
+          "Apple Silicon ARM64 CPU Architecture (Estes Express)",
+          "CloudFlare Protection + TLS Fingerprinting (FedEx Freight)",
+          "Browser Detection and Anti-Scraping (All Carriers)",
+          "JavaScript Challenge Solving (CloudFlare)",
+          "Mobile API Endpoint Discovery (All Carriers)"
+        ],
+        "supported_carriers": [
+          "Estes Express",
+          "FedEx Freight",
+          "Peninsula Trucking",
+          "R&L Carriers"
+        ]
+      },
+      "timestamp": "2025-07-10T11:27:43.781280"
+    },
+    {
+      "test_name": "Carrier Detection",
+      "success": true,
+      "details": {
+        "total_tests": 9,
+        "successful_detections": 9,
+        "failed_detections": 0,
+        "success_rate": 100.0,
+        "detection_details": [
+          {
+            "tracking_number": "1234567890",
+            "expected": "estes",
+            "detected": "estes",
+            "correct": true
+          },
+          {
+            "tracking_number": "01234567890",
+            "expected": "estes",
+            "detected": "estes",
+            "correct": true
+          },
+          {
+            "tracking_number": "100123456789",
+            "expected": "fedex",
+            "detected": "fedex",
+            "correct": true
+          },
+          {
+            "tracking_number": "10012345678901",
+            "expected": "fedex",
+            "detected": "fedex",
+            "correct": true
+          },
+          {
+            "tracking_number": "12345678",
+            "expected": "peninsula",
+            "detected": "peninsula",
+            "correct": true
+          },
+          {
+            "tracking_number": "PEN12345",
+            "expected": "peninsula",
+            "detected": "peninsula",
+            "correct": true
+          },
+          {
+            "tracking_number": "123456789",
+            "expected": "rl",
+            "detected": "rl",
+            "correct": true
+          },
+          {
+            "tracking_number": "RL1234567",
+            "expected": "rl",
+            "detected": "rl",
+            "correct": true
+          },
+          {
+            "tracking_number": "UNKNOWN123",
+            "expected": "unknown",
+            "detected": "unknown",
+            "correct": true
+          }
+        ]
+      },
+      "timestamp": "2025-07-10T11:27:43.781542"
+    },
+    {
+      "test_name": "Apple Silicon Estes Barrier",
+      "success": true,
+      "details": {
+        "total_tests": 4,
+        "successful_tracks": 4,
+        "failed_tracks": 0,
+        "success_rate": 100.0,
+        "target_success_rate": "75-85%",
+        "barrier_type": "Apple Silicon ARM64 CPU Architecture",
+        "track_details": [
+          {
+            "tracking_number": "1234567890",
+            "success": true,
+            "method": "Apple Silicon Breakthrough",
+            "barrier_solved": "ARM64 CPU Architecture",
+            "elapsed_time": 40.22393226623535,
+            "error": null
+          },
+          {
+            "tracking_number": "01234567890",
+            "success": true,
+            "method": "Apple Silicon Breakthrough",
+            "barrier_solved": "ARM64 CPU Architecture",
+            "elapsed_time": 42.80672478675842,
+            "error": null
+          },
+          {
+            "tracking_number": "2345678901",
+            "success": true,
+            "method": "Apple Silicon Breakthrough",
+            "barrier_solved": "ARM64 CPU Architecture",
+            "elapsed_time": 35.746915102005005,
+            "error": null
+          },
+          {
+            "tracking_number": "3456789012",
+            "success": true,
+            "method": "Apple Silicon Breakthrough",
+            "barrier_solved": "ARM64 CPU Architecture",
+            "elapsed_time": 37.10069465637207,
+            "error": null
+          }
+        ]
+      },
+      "timestamp": "2025-07-10T11:30:19.660506"
+    },
+    {
+      "test_name": "CloudFlare FedEx Barrier",
+      "success": true,
+      "details": {
+        "total_tests": 4,
+        "successful_tracks": 4,
+        "failed_tracks": 0,
+        "success_rate": 100.0,
+        "target_success_rate": "60-75%",
+        "barrier_type": "CloudFlare Protection + TLS Fingerprinting",
+        "track_details": [
+          {
+            "tracking_number": "100123456789",
+            "success": true,
+            "method": "CloudFlare Breakthrough",
+            "barrier_solved": "CloudFlare Protection + TLS Fingerprinting",
+            "elapsed_time": 2.4261727333068848,
+            "error": null
+          },
+          {
+            "tracking_number": "10012345678901",
+            "success": true,
+            "method": "CloudFlare Breakthrough",
+            "barrier_solved": "CloudFlare Protection + TLS Fingerprinting",
+            "elapsed_time": 2.29374098777771,
+            "error": null
+          },
+          {
+            "tracking_number": "100234567890",
+            "success": true,
+            "method": "CloudFlare Breakthrough",
+            "barrier_solved": "CloudFlare Protection + TLS Fingerprinting",
+            "elapsed_time": 2.5663397312164307,
+            "error": null
+          },
+          {
+            "tracking_number": "100345678901",
+            "success": true,
+            "method": "CloudFlare Breakthrough",
+            "barrier_solved": "CloudFlare Protection + TLS Fingerprinting",
+            "elapsed_time": 3.362070083618164,
+            "error": null
+          }
+        ]
+      },
+      "timestamp": "2025-07-10T11:30:30.309457"
+    },
+    {
+      "test_name": "Integrated Barrier-Breaking System",
+      "success": false,
+      "details": {
+        "total_shipments": 16,
+        "successful_tracks": 8,
+        "failed_tracks": 8,
+        "overall_success_rate": 50.0,
+        "barriers_solved": [
+          "ARM64 CPU Architecture",
+          "CloudFlare Protection + TLS Fingerprinting"
+        ],
+        "elapsed_time": 151.8820459842682,
+        "carrier_breakdown": {
+          "Estes Express": {
+            "successful": 4,
+            "failed": 0,
+            "total": 4,
+            "success_rate": 100.0
+          },
+          "FedEx Freight": {
+            "successful": 4,
+            "failed": 0,
+            "total": 4,
+            "success_rate": 100.0
+          },
+          "peninsula": {
+            "successful": 0,
+            "failed": 4,
+            "total": 4,
+            "success_rate": 0.0
+          },
+          "rl": {
+            "successful": 0,
+            "failed": 4,
+            "total": 4,
+            "success_rate": 0.0
+          }
+        },
+        "individual_results": [
+          {
+            "success": true,
+            "tracking_number": "1234567890",
+            "carrier": "Estes Express",
+            "status": "'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+            "details": [
+              "'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+              "Roboto, sans-serif;--mat-datepicker-calendar-text-size:13px;--mat-datepicker-calendar-body-label-text-size:14px;--mat-datepicker-calendar-body-label-text-weight:500;--mat-datepicker-calendar-period-button-text-size:14px;--mat-datepicker-calendar-period-button-text-weight:500;--mat-datepicker-calendar-header-text-size:11px;--mat-datepicker-calendar-header-text-weight:400}html{--mat-expansion-header-text-font:Roboto, sans-serif;--mat-expansion-header-text-size:14px;--mat-expansion-header-text-weight:500;--mat-expansion-header-text-line-height:inherit;--mat-expansion-header-text-tracking:inherit;--mat-expansion-container-text-font:Roboto, sans-serif;--mat-expansion-container-text-line-height:20px;--mat-expansion-container-text-size:14px;--mat-expansion-container-text-tracking:.0178571429em;--mat-expansion-container-text-weight:400}html{--mat-grid-list-tile-header-primary-text-size:14px;--mat-grid-list-tile-header-secondary-text-size:12px;--mat-grid-list-tile-footer-primary-text-size:14px;--mat-grid-list-tile-footer-secondary-text-size:12px}html{--mat-stepper-container-text-font:Roboto, sans-serif;--mat-stepper-header-label-text-font:Roboto, sans-serif;--mat-stepper-header-label-text-size:14px;--mat-stepper-header-label-text-weight:400;--mat-stepper-header-error-state-label-text-size:16px;--mat-stepper-header-selected-state-label-text-size:16px;--mat-stepper-header-selected-state-label-text-weight:400}html{--mat-toolbar-title-text-font:Roboto, sans-serif;--mat-toolbar-title-text-line-height:32px;--mat-toolbar-title-text-size:20px;--mat-toolbar-title-text-tracking:.0125em;--mat-toolbar-title-text-weight:500}html{--mat-option-label-text-font:Roboto, sans-serif;--mat-option-label-text-line-height:24px;--mat-option-label-text-size:16px;--mat-option-label-text-tracking:.03125em;--mat-option-label-text-weight:400}html{--mat-optgroup-label-text-font:Roboto, sans-serif;--mat-optgroup-label-text-line-height:24px;--mat-optgroup-label-text-size:16px;--mat-optgroup-label-text-tracking:.03125em;--mat-optgroup-label-text-weight:400}html{--mdc-filled-text-field-label-text-font:Roboto, sans-serif;--mdc-filled-text-field-label-text-size:16px;--mdc-filled-text-field-label-text-tracking:.03125em;--mdc-filled-text-field-label-text-weight:400;--mdc-outlined-text-field-label-text-font:Roboto, sans-serif;--mdc-outlined-text-field-label-text-size:16px;--mdc-outlined-text-field-label-text-tracking:.03125em;--mdc-outlined-text-field-label-text-weight:400;--mat-form-field-container-text-font:Roboto, sans-serif;--mat-form-field-container-text-line-height:24px;--mat-form-field-container-text-size:16px;--mat-form-field-container-text-tracking:.03125em;--mat-form-field-container-text-weight:400;--mat-form-field-outlined-label-text-populated-size:16px;--mat-form-field-subscript-text-font:Roboto, sans-serif;--mat-form-field-subscript-text-line-height:20px;--mat-form-field-subscript-text-size:12px;--mat-form-field-subscript-text-tracking:.0333333333em;--mat-form-field-subscript-text-weight:400}html{--mat-select-trigger-text-font:Roboto, sans-serif;--mat-select-trigger-text-line-height:24px;--mat-select-trigger-text-size:16px;--mat-select-trigger-text-tracking:.03125em;--mat-select-trigger-text-weight:400}html{--mat-menu-item-label-text-font:Roboto, sans-serif;--mat-menu-item-label-text-size:16px;--mat-menu-item-label-text-tracking:.03125em;--mat-menu-item-label-text-line-height:24px;--mat-menu-item-label-text-weight:400}html{--mat-paginator-container-text-font:Roboto, sans-serif;--mat-paginator-container-text-line-height:20px;--mat-paginator-container-text-size:12px;--mat-paginator-container-text-tracking:.0333333333em;--mat-paginator-container-text-weight:400;--mat-paginator-select-trigger-text-size:12px}html{--mat-table-header-headline-font:Roboto, sans-serif;--mat-table-header-headline-line-height:22px;--mat-table-header-headline-size:14px;--mat-table-header-headline-weight:500;--mat-table-header-headline-tracking:.0071428571em;--mat-table-row-item-label-text-font:Roboto, sans-serif;--mat-table-row-item-label-text-line-height:20px;--mat-table-row-item-label-text-size:14px;--mat-table-row-item-label-text-weight:400;--mat-table-row-item-label-text-tracking:.0178571429em;--mat-table-footer-supporting-text-font:Roboto, sans-serif;--mat-table-footer-supporting-text-line-height:20px;--mat-table-footer-supporting-text-size:14px;--mat-table-footer-supporting-text-weight:400;--mat-table-footer-supporting-text-tracking:.0178571429em}html{--mat-option-selected-state-label-text-color:#0052e0;--mat-option-label-text-color:rgba(0, 0, 0, .87);--mat-option-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-option-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-option-selected-state-layer-color:rgba(0, 0, 0, .04)}html{--mat-optgroup-label-text-color:rgba(0, 0, 0, .87)}html{--mdc-filled-text-field-caret-color:#0052e0;--mdc-filled-text-field-focus-active-indicator-color:#0052e0;--mdc-filled-text-field-focus-label-text-color:rgba(0, 82, 224, .87);--mdc-filled-text-field-container-color:whitesmoke;--mdc-filled-text-field-disabled-container-color:#fafafa;--mdc-filled-text-field-label-text-color:rgba(0, 0, 0, .6);--mdc-filled-text-field-disabled-label-text-color:rgba(0, 0, 0, .38);--mdc-filled-text-field-input-text-color:rgba(0, 0, 0, .87);--mdc-filled-text-field-disabled-input-text-color:rgba(0, 0, 0, .38);--mdc-filled-text-field-input-text-placeholder-color:rgba(0, 0, 0, .6);--mdc-filled-text-field-error-focus-label-text-color:#d81e05;--mdc-filled-text-field-error-label-text-color:#d81e05;--mdc-filled-text-field-error-caret-color:#d81e05;--mdc-filled-text-field-active-indicator-color:rgba(0, 0, 0, .42);--mdc-filled-text-field-disabled-active-indicator-color:rgba(0, 0, 0, .06);--mdc-filled-text-field-hover-active-indicator-color:rgba(0, 0, 0, .87);--mdc-filled-text-field-error-active-indicator-color:#d81e05;--mdc-filled-text-field-error-focus-active-indicator-color:#d81e05;--mdc-filled-text-field-error-hover-active-indicator-color:#d81e05;--mdc-outlined-text-field-caret-color:#0052e0;--mdc-outlined-text-field-focus-outline-color:#0052e0;--mdc-outlined-text-field-focus-label-text-color:rgba(0, 82, 224, .87);--mdc-outlined-text-field-label-text-color:rgba(0, 0, 0, .6);--mdc-outlined-text-field-disabled-label-text-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-input-text-color:rgba(0, 0, 0, .87);--mdc-outlined-text-field-disabled-input-text-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-input-text-placeholder-color:rgba(0, 0, 0, .6);--mdc-outlined-text-field-error-caret-color:#d81e05;--mdc-outlined-text-field-error-focus-label-text-color:#d81e05;--mdc-outlined-text-field-error-label-text-color:#d81e05;--mdc-outlined-text-field-outline-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-disabled-outline-color:rgba(0, 0, 0, .06);--mdc-outlined-text-field-hover-outline-color:rgba(0, 0, 0, .87);--mdc-outlined-text-field-error-focus-outline-color:#d81e05;--mdc-outlined-text-field-error-hover-outline-color:#d81e05;--mdc-outlined-text-field-error-outline-color:#d81e05;--mat-form-field-disabled-input-text-placeholder-color:rgba(0, 0, 0, .38)}html{--mat-select-panel-background-color:white;--mat-select-enabled-trigger-text-color:rgba(0, 0, 0, .87);--mat-select-disabled-trigger-text-color:rgba(0, 0, 0, .38);--mat-select-placeholder-text-color:rgba(0, 0, 0, .6);--mat-select-enabled-arrow-color:rgba(0, 0, 0, .54);--mat-select-disabled-arrow-color:rgba(0, 0, 0, .38);--mat-select-focused-arrow-color:rgba(0, 82, 224, .87);--mat-select-invalid-arrow-color:rgba(216, 30, 5, .87)}html{--mat-autocomplete-background-color:white}html{--mat-menu-item-label-text-color:rgba(0, 0, 0, .87);--mat-menu-item-icon-color:rgba(0, 0, 0, .87);--mat-menu-item-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-menu-item-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-menu-container-color:white}html{--mat-paginator-container-text-color:rgba(0, 0, 0, .87);--mat-paginator-container-background-color:white;--mat-paginator-enabled-icon-color:rgba(0, 0, 0, .54);--mat-paginator-disabled-icon-color:rgba(0, 0, 0, .12)}html{--mat-paginator-container-size:56px}html{--mdc-checkbox-disabled-selected-icon-color:rgba(0, 0, 0, .38);--mdc-checkbox-disabled-unselected-icon-color:rgba(0, 0, 0, .38);--mdc-checkbox-selected-checkmark-color:#000;--mdc-checkbox-selected-focus-icon-color:#fcd116;--mdc-checkbox-selected-hover-icon-color:#fcd116;--mdc-checkbox-selected-icon-color:#fcd116;--mdc-checkbox-selected-pressed-icon-color:#fcd116;--mdc-checkbox-unselected-focus-icon-color:#212121;--mdc-checkbox-unselected-hover-icon-color:#212121;--mdc-checkbox-unselected-icon-color:rgba(0, 0, 0, .54);--mdc-checkbox-unselected-pressed-icon-color:rgba(0, 0, 0, .54);--mdc-checkbox-selected-focus-state-layer-color:#fcd116;--mdc-checkbox-selected-hover-state-layer-color:#fcd116;--mdc-checkbox-selected-pressed-state-layer-color:#fcd116;--mdc-checkbox-unselected-focus-state-layer-color:black;--mdc-checkbox-unselected-hover-state-layer-color:black;--mdc-checkbox-unselected-pressed-state-layer-color:black}html{--mdc-checkbox-state-layer-size:40px}html{--mat-table-background-color:white;--mat-table-header-headline-color:rgba(0, 0, 0, .87);--mat-table-row-item-label-text-color:rgba(0, 0, 0, .87);--mat-table-row-item-outline-color:rgba(0, 0, 0, .12)}html{--mat-table-header-container-height:56px;--mat-table-footer-container-height:52px;--mat-table-row-item-container-height:52px}html{--mat-badge-background-color:#0052e0;--mat-badge-text-color:white;--mat-badge-disabled-state-background-color:#b9b9b9;--mat-badge-disabled-state-text-color:rgba(0, 0, 0, .38)}html{--mat-bottom-sheet-container-text-color:rgba(0, 0, 0, .87);--mat-bottom-sheet-container-background-color:white}html{--mat-legacy-button-toggle-text-color:rgba(0, 0, 0, .38);--mat-legacy-button-toggle-state-layer-color:rgba(0, 0, 0, .12);--mat-legacy-button-toggle-selected-state-text-color:rgba(0, 0, 0, .54);--mat-legacy-button-toggle-selected-state-background-color:#e0e0e0;--mat-legacy-button-toggle-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-legacy-button-toggle-disabled-state-background-color:#eeeeee;--mat-legacy-button-toggle-disabled-selected-state-background-color:#bdbdbd;--mat-standard-button-toggle-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-background-color:white;--mat-standard-button-toggle-state-layer-color:black;--mat-standard-button-toggle-selected-state-background-color:#e0e0e0;--mat-standard-button-toggle-selected-state-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-standard-button-toggle-disabled-state-background-color:white;--mat-standard-button-toggle-disabled-selected-state-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-disabled-selected-state-background-color:#bdbdbd;--mat-standard-button-toggle-divider-color:#e0e0e0}html{--mat-standard-button-toggle-height:48px}html{--mat-datepicker-calendar-date-selected-state-text-color:white;--mat-datepicker-calendar-date-selected-state-background-color:#0052e0;--mat-datepicker-calendar-date-selected-disabled-state-background-color:rgba(0, 82, 224, .4);--mat-datepicker-calendar-date-today-selected-state-outline-color:white;--mat-datepicker-calendar-date-focus-state-background-color:rgba(0, 82, 224, .3);--mat-datepicker-calendar-date-hover-state-background-color:rgba(0, 82, 224, .3);--mat-datepicker-toggle-active-state-icon-color:#0052e0;--mat-datepicker-calendar-date-in-range-state-background-color:rgba(0, 82, 224, .2);--mat-datepicker-calendar-date-in-comparison-range-state-background-color:rgba(249, 171, 0, .2);--mat-datepicker-calendar-date-in-overlap-range-state-background-color:#a8dab5;--mat-datepicker-calendar-date-in-overlap-range-selected-state-background-color:#46a35e;--mat-datepicker-toggle-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-body-label-text-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-period-button-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-navigation-button-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-header-divider-color:rgba(0, 0, 0, .12);--mat-datepicker-calendar-header-text-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-date-today-outline-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-date-today-disabled-state-outline-color:rgba(0, 0, 0, .18);--mat-datepicker-calendar-date-text-color:rgba(0, 0, 0, .87);--mat-datepicker-calendar-date-outline-color:transparent;--mat-datepicker-calendar-date-disabled-state-text-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-date-preview-state-outline-color:rgba(0, 0, 0, .24);--mat-datepicker-range-input-separator-color:rgba(0, 0, 0, .87);--mat-datepicker-range-input-disabled-state-separator-color:rgba(0, 0, 0, .38);--mat-datepicker-range-input-disabled-state-text-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-container-background-color:white;--mat-datepicker-calendar-container-text-color:rgba(0, 0, 0, .87)}html{--mat-divider-color:rgba(0, 0, 0, .12)}html{--mat-expansion-container-background-color:white;--mat-expansion-container-text-color:rgba(0, 0, 0, .87);--mat-expansion-actions-divider-color:rgba(0, 0, 0, .12);--mat-expansion-header-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-expansion-header-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-expansion-header-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-expansion-header-text-color:rgba(0, 0, 0, .87);--mat-expansion-header-description-color:rgba(0, 0, 0, .54);--mat-expansion-header-indicator-color:rgba(0, 0, 0, .54)}html{--mat-expansion-header-collapsed-state-height:48px;--mat-expansion-header-expanded-state-height:64px}html{--mat-icon-color:inherit}html{--mat-sidenav-container-divider-color:rgba(0, 0, 0, .12);--mat-sidenav-container-background-color:white;--mat-sidenav-container-text-color:rgba(0, 0, 0, .87);--mat-sidenav-content-background-color:#fafafa;--mat-sidenav-content-text-color:rgba(0, 0, 0, .87);--mat-sidenav-scrim-color:rgba(0, 0, 0, .6)}html{--mat-stepper-header-icon-foreground-color:white;--mat-stepper-header-selected-state-icon-background-color:#0052e0;--mat-stepper-header-selected-state-icon-foreground-color:white;--mat-stepper-header-done-state-icon-background-color:#0052e0;--mat-stepper-header-done-state-icon-foreground-color:white;--mat-stepper-header-edit-state-icon-background-color:#0052e0;--mat-stepper-header-edit-state-icon-foreground-color:white;--mat-stepper-container-color:white;--mat-stepper-line-color:rgba(0, 0, 0, .12);--mat-stepper-header-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-stepper-header-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-stepper-header-label-text-color:rgba(0, 0, 0, .54);--mat-stepper-header-optional-label-text-color:rgba(0, 0, 0, .54);--mat-stepper-header-selected-state-label-text-color:rgba(0, 0, 0, .87);--mat-stepper-header-error-state-label-text-color:#d81e05;--mat-stepper-header-icon-background-color:rgba(0, 0, 0, .54);--mat-stepper-header-error-state-icon-foreground-color:#d81e05;--mat-stepper-header-error-state-icon-background-color:transparent}html{--mat-stepper-header-height:72px}html{--mat-toolbar-container-background-color:whitesmoke;--mat-toolbar-container-text-color:rgba(0, 0, 0, .87)}html{--mat-toolbar-standard-height:64px;--mat-toolbar-mobile-height:56px}@charset \"UTF-8\";:root{--blue:#0052E0;--indigo:#2C119D;--purple:#6E18A9;--pink:#D84B8E;--red:#D81E05;--orange:#FCAB16;--yellow:#FCD116;--green:#4eb807;--teal:#A8C8FF;--cyan:#00A3F5;--white:#fff;--gray:#e0e0e0;--gray-dark:#616161;--purple-dark:#551A8B;--yellow-dark:#e8c014;--primary:#FCD116;--secondary:#616161;--success:#4eb807;--info:#0052E0;--warning:#FCAB16;--danger:#D81E05;--light:#f5f5f5;--dark:#000;--breakpoint-xs:0;--breakpoint-sm:576px;--breakpoint-md:768px;--breakpoint-lg:992px;--breakpoint-xl:1250px;--font-family-sans-serif:Roboto, \"Helvetica Neue\", Helvetica, Arial, sans-serif;--font-family-monospace:SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace}*,*:before,*:after{box-sizing:border-box}html{font-family:sans-serif;line-height:1.15;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;-ms-overflow-style:scrollbar;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{margin:0;font-family:Roboto,Helvetica Neue,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:400;line-height:1.5;color:#000;text-align:left;background-color:#f5f5f5}@media print{*,*:before,*:after{text-shadow:none!important;box-shadow:none!important}@page{size:a3}body{min-width:992px!important}}body{padding-top:64px}@media print{body{padding-top:1rem}}html{--mat-option-selected-state-label-text-color:rgba(0,0,0,.87) !important;--mat-select-trigger-text-font:Roboto,\"Helvetica Neue\",sans-serif !important;--mat-select-trigger-text-size:14px !important;--mdc-outlined-text-field-focus-label-text-color:#0052e0 !important;--mdc-outlined-text-field-label-text-tracking:normal !important;--mat-select-placeholder-text-color:rgba(0, 0, 0, .42) !important;--mdc-outlined-text-field-input-text-placeholder-color:rgba(0, 0, 0, .42) !important}",
+              "'gtm.js'});var f=d.getElementsByTagName(s)[0],"
+            ],
+            "raw_data": "<!doctype html>\n<html lang=\"en\" data-critters-container>\n<head>\n  <meta charset=\"utf-8\">\n  <title>My Estes: Shipment Tracking</title>\n  <base href=\"/myestes/shipment-tracking/\">\n  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n  <script type=\"text/javascript\">\n        window.dataLayer = window.dataLayer || [];\n  </script>\n  <!-- Google Tag Manager -->\n  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\n  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\n  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n  })(window,document,'script','dataLayer','GTM-P2R86FD');</script>\n  <!-- End Google Tag Manager -->\n<style>@import\"https://fonts.googleapis.com/icon?family=Material+Icons\";html{--mat-badge-text-font:Roboto,",
+            "method": "Apple Silicon Breakthrough",
+            "barrier_solved": "ARM64 CPU Architecture",
+            "elapsed_time": 84.55749416351318,
+            "timestamp": 1752165114.867456
+          },
+          {
+            "success": true,
+            "tracking_number": "01234567890",
+            "carrier": "Estes Express",
+            "status": "'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+            "details": [
+              "'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+              "Roboto, sans-serif;--mat-datepicker-calendar-text-size:13px;--mat-datepicker-calendar-body-label-text-size:14px;--mat-datepicker-calendar-body-label-text-weight:500;--mat-datepicker-calendar-period-button-text-size:14px;--mat-datepicker-calendar-period-button-text-weight:500;--mat-datepicker-calendar-header-text-size:11px;--mat-datepicker-calendar-header-text-weight:400}html{--mat-expansion-header-text-font:Roboto, sans-serif;--mat-expansion-header-text-size:14px;--mat-expansion-header-text-weight:500;--mat-expansion-header-text-line-height:inherit;--mat-expansion-header-text-tracking:inherit;--mat-expansion-container-text-font:Roboto, sans-serif;--mat-expansion-container-text-line-height:20px;--mat-expansion-container-text-size:14px;--mat-expansion-container-text-tracking:.0178571429em;--mat-expansion-container-text-weight:400}html{--mat-grid-list-tile-header-primary-text-size:14px;--mat-grid-list-tile-header-secondary-text-size:12px;--mat-grid-list-tile-footer-primary-text-size:14px;--mat-grid-list-tile-footer-secondary-text-size:12px}html{--mat-stepper-container-text-font:Roboto, sans-serif;--mat-stepper-header-label-text-font:Roboto, sans-serif;--mat-stepper-header-label-text-size:14px;--mat-stepper-header-label-text-weight:400;--mat-stepper-header-error-state-label-text-size:16px;--mat-stepper-header-selected-state-label-text-size:16px;--mat-stepper-header-selected-state-label-text-weight:400}html{--mat-toolbar-title-text-font:Roboto, sans-serif;--mat-toolbar-title-text-line-height:32px;--mat-toolbar-title-text-size:20px;--mat-toolbar-title-text-tracking:.0125em;--mat-toolbar-title-text-weight:500}html{--mat-option-label-text-font:Roboto, sans-serif;--mat-option-label-text-line-height:24px;--mat-option-label-text-size:16px;--mat-option-label-text-tracking:.03125em;--mat-option-label-text-weight:400}html{--mat-optgroup-label-text-font:Roboto, sans-serif;--mat-optgroup-label-text-line-height:24px;--mat-optgroup-label-text-size:16px;--mat-optgroup-label-text-tracking:.03125em;--mat-optgroup-label-text-weight:400}html{--mdc-filled-text-field-label-text-font:Roboto, sans-serif;--mdc-filled-text-field-label-text-size:16px;--mdc-filled-text-field-label-text-tracking:.03125em;--mdc-filled-text-field-label-text-weight:400;--mdc-outlined-text-field-label-text-font:Roboto, sans-serif;--mdc-outlined-text-field-label-text-size:16px;--mdc-outlined-text-field-label-text-tracking:.03125em;--mdc-outlined-text-field-label-text-weight:400;--mat-form-field-container-text-font:Roboto, sans-serif;--mat-form-field-container-text-line-height:24px;--mat-form-field-container-text-size:16px;--mat-form-field-container-text-tracking:.03125em;--mat-form-field-container-text-weight:400;--mat-form-field-outlined-label-text-populated-size:16px;--mat-form-field-subscript-text-font:Roboto, sans-serif;--mat-form-field-subscript-text-line-height:20px;--mat-form-field-subscript-text-size:12px;--mat-form-field-subscript-text-tracking:.0333333333em;--mat-form-field-subscript-text-weight:400}html{--mat-select-trigger-text-font:Roboto, sans-serif;--mat-select-trigger-text-line-height:24px;--mat-select-trigger-text-size:16px;--mat-select-trigger-text-tracking:.03125em;--mat-select-trigger-text-weight:400}html{--mat-menu-item-label-text-font:Roboto, sans-serif;--mat-menu-item-label-text-size:16px;--mat-menu-item-label-text-tracking:.03125em;--mat-menu-item-label-text-line-height:24px;--mat-menu-item-label-text-weight:400}html{--mat-paginator-container-text-font:Roboto, sans-serif;--mat-paginator-container-text-line-height:20px;--mat-paginator-container-text-size:12px;--mat-paginator-container-text-tracking:.0333333333em;--mat-paginator-container-text-weight:400;--mat-paginator-select-trigger-text-size:12px}html{--mat-table-header-headline-font:Roboto, sans-serif;--mat-table-header-headline-line-height:22px;--mat-table-header-headline-size:14px;--mat-table-header-headline-weight:500;--mat-table-header-headline-tracking:.0071428571em;--mat-table-row-item-label-text-font:Roboto, sans-serif;--mat-table-row-item-label-text-line-height:20px;--mat-table-row-item-label-text-size:14px;--mat-table-row-item-label-text-weight:400;--mat-table-row-item-label-text-tracking:.0178571429em;--mat-table-footer-supporting-text-font:Roboto, sans-serif;--mat-table-footer-supporting-text-line-height:20px;--mat-table-footer-supporting-text-size:14px;--mat-table-footer-supporting-text-weight:400;--mat-table-footer-supporting-text-tracking:.0178571429em}html{--mat-option-selected-state-label-text-color:#0052e0;--mat-option-label-text-color:rgba(0, 0, 0, .87);--mat-option-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-option-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-option-selected-state-layer-color:rgba(0, 0, 0, .04)}html{--mat-optgroup-label-text-color:rgba(0, 0, 0, .87)}html{--mdc-filled-text-field-caret-color:#0052e0;--mdc-filled-text-field-focus-active-indicator-color:#0052e0;--mdc-filled-text-field-focus-label-text-color:rgba(0, 82, 224, .87);--mdc-filled-text-field-container-color:whitesmoke;--mdc-filled-text-field-disabled-container-color:#fafafa;--mdc-filled-text-field-label-text-color:rgba(0, 0, 0, .6);--mdc-filled-text-field-disabled-label-text-color:rgba(0, 0, 0, .38);--mdc-filled-text-field-input-text-color:rgba(0, 0, 0, .87);--mdc-filled-text-field-disabled-input-text-color:rgba(0, 0, 0, .38);--mdc-filled-text-field-input-text-placeholder-color:rgba(0, 0, 0, .6);--mdc-filled-text-field-error-focus-label-text-color:#d81e05;--mdc-filled-text-field-error-label-text-color:#d81e05;--mdc-filled-text-field-error-caret-color:#d81e05;--mdc-filled-text-field-active-indicator-color:rgba(0, 0, 0, .42);--mdc-filled-text-field-disabled-active-indicator-color:rgba(0, 0, 0, .06);--mdc-filled-text-field-hover-active-indicator-color:rgba(0, 0, 0, .87);--mdc-filled-text-field-error-active-indicator-color:#d81e05;--mdc-filled-text-field-error-focus-active-indicator-color:#d81e05;--mdc-filled-text-field-error-hover-active-indicator-color:#d81e05;--mdc-outlined-text-field-caret-color:#0052e0;--mdc-outlined-text-field-focus-outline-color:#0052e0;--mdc-outlined-text-field-focus-label-text-color:rgba(0, 82, 224, .87);--mdc-outlined-text-field-label-text-color:rgba(0, 0, 0, .6);--mdc-outlined-text-field-disabled-label-text-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-input-text-color:rgba(0, 0, 0, .87);--mdc-outlined-text-field-disabled-input-text-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-input-text-placeholder-color:rgba(0, 0, 0, .6);--mdc-outlined-text-field-error-caret-color:#d81e05;--mdc-outlined-text-field-error-focus-label-text-color:#d81e05;--mdc-outlined-text-field-error-label-text-color:#d81e05;--mdc-outlined-text-field-outline-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-disabled-outline-color:rgba(0, 0, 0, .06);--mdc-outlined-text-field-hover-outline-color:rgba(0, 0, 0, .87);--mdc-outlined-text-field-error-focus-outline-color:#d81e05;--mdc-outlined-text-field-error-hover-outline-color:#d81e05;--mdc-outlined-text-field-error-outline-color:#d81e05;--mat-form-field-disabled-input-text-placeholder-color:rgba(0, 0, 0, .38)}html{--mat-select-panel-background-color:white;--mat-select-enabled-trigger-text-color:rgba(0, 0, 0, .87);--mat-select-disabled-trigger-text-color:rgba(0, 0, 0, .38);--mat-select-placeholder-text-color:rgba(0, 0, 0, .6);--mat-select-enabled-arrow-color:rgba(0, 0, 0, .54);--mat-select-disabled-arrow-color:rgba(0, 0, 0, .38);--mat-select-focused-arrow-color:rgba(0, 82, 224, .87);--mat-select-invalid-arrow-color:rgba(216, 30, 5, .87)}html{--mat-autocomplete-background-color:white}html{--mat-menu-item-label-text-color:rgba(0, 0, 0, .87);--mat-menu-item-icon-color:rgba(0, 0, 0, .87);--mat-menu-item-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-menu-item-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-menu-container-color:white}html{--mat-paginator-container-text-color:rgba(0, 0, 0, .87);--mat-paginator-container-background-color:white;--mat-paginator-enabled-icon-color:rgba(0, 0, 0, .54);--mat-paginator-disabled-icon-color:rgba(0, 0, 0, .12)}html{--mat-paginator-container-size:56px}html{--mdc-checkbox-disabled-selected-icon-color:rgba(0, 0, 0, .38);--mdc-checkbox-disabled-unselected-icon-color:rgba(0, 0, 0, .38);--mdc-checkbox-selected-checkmark-color:#000;--mdc-checkbox-selected-focus-icon-color:#fcd116;--mdc-checkbox-selected-hover-icon-color:#fcd116;--mdc-checkbox-selected-icon-color:#fcd116;--mdc-checkbox-selected-pressed-icon-color:#fcd116;--mdc-checkbox-unselected-focus-icon-color:#212121;--mdc-checkbox-unselected-hover-icon-color:#212121;--mdc-checkbox-unselected-icon-color:rgba(0, 0, 0, .54);--mdc-checkbox-unselected-pressed-icon-color:rgba(0, 0, 0, .54);--mdc-checkbox-selected-focus-state-layer-color:#fcd116;--mdc-checkbox-selected-hover-state-layer-color:#fcd116;--mdc-checkbox-selected-pressed-state-layer-color:#fcd116;--mdc-checkbox-unselected-focus-state-layer-color:black;--mdc-checkbox-unselected-hover-state-layer-color:black;--mdc-checkbox-unselected-pressed-state-layer-color:black}html{--mdc-checkbox-state-layer-size:40px}html{--mat-table-background-color:white;--mat-table-header-headline-color:rgba(0, 0, 0, .87);--mat-table-row-item-label-text-color:rgba(0, 0, 0, .87);--mat-table-row-item-outline-color:rgba(0, 0, 0, .12)}html{--mat-table-header-container-height:56px;--mat-table-footer-container-height:52px;--mat-table-row-item-container-height:52px}html{--mat-badge-background-color:#0052e0;--mat-badge-text-color:white;--mat-badge-disabled-state-background-color:#b9b9b9;--mat-badge-disabled-state-text-color:rgba(0, 0, 0, .38)}html{--mat-bottom-sheet-container-text-color:rgba(0, 0, 0, .87);--mat-bottom-sheet-container-background-color:white}html{--mat-legacy-button-toggle-text-color:rgba(0, 0, 0, .38);--mat-legacy-button-toggle-state-layer-color:rgba(0, 0, 0, .12);--mat-legacy-button-toggle-selected-state-text-color:rgba(0, 0, 0, .54);--mat-legacy-button-toggle-selected-state-background-color:#e0e0e0;--mat-legacy-button-toggle-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-legacy-button-toggle-disabled-state-background-color:#eeeeee;--mat-legacy-button-toggle-disabled-selected-state-background-color:#bdbdbd;--mat-standard-button-toggle-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-background-color:white;--mat-standard-button-toggle-state-layer-color:black;--mat-standard-button-toggle-selected-state-background-color:#e0e0e0;--mat-standard-button-toggle-selected-state-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-standard-button-toggle-disabled-state-background-color:white;--mat-standard-button-toggle-disabled-selected-state-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-disabled-selected-state-background-color:#bdbdbd;--mat-standard-button-toggle-divider-color:#e0e0e0}html{--mat-standard-button-toggle-height:48px}html{--mat-datepicker-calendar-date-selected-state-text-color:white;--mat-datepicker-calendar-date-selected-state-background-color:#0052e0;--mat-datepicker-calendar-date-selected-disabled-state-background-color:rgba(0, 82, 224, .4);--mat-datepicker-calendar-date-today-selected-state-outline-color:white;--mat-datepicker-calendar-date-focus-state-background-color:rgba(0, 82, 224, .3);--mat-datepicker-calendar-date-hover-state-background-color:rgba(0, 82, 224, .3);--mat-datepicker-toggle-active-state-icon-color:#0052e0;--mat-datepicker-calendar-date-in-range-state-background-color:rgba(0, 82, 224, .2);--mat-datepicker-calendar-date-in-comparison-range-state-background-color:rgba(249, 171, 0, .2);--mat-datepicker-calendar-date-in-overlap-range-state-background-color:#a8dab5;--mat-datepicker-calendar-date-in-overlap-range-selected-state-background-color:#46a35e;--mat-datepicker-toggle-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-body-label-text-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-period-button-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-navigation-button-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-header-divider-color:rgba(0, 0, 0, .12);--mat-datepicker-calendar-header-text-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-date-today-outline-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-date-today-disabled-state-outline-color:rgba(0, 0, 0, .18);--mat-datepicker-calendar-date-text-color:rgba(0, 0, 0, .87);--mat-datepicker-calendar-date-outline-color:transparent;--mat-datepicker-calendar-date-disabled-state-text-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-date-preview-state-outline-color:rgba(0, 0, 0, .24);--mat-datepicker-range-input-separator-color:rgba(0, 0, 0, .87);--mat-datepicker-range-input-disabled-state-separator-color:rgba(0, 0, 0, .38);--mat-datepicker-range-input-disabled-state-text-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-container-background-color:white;--mat-datepicker-calendar-container-text-color:rgba(0, 0, 0, .87)}html{--mat-divider-color:rgba(0, 0, 0, .12)}html{--mat-expansion-container-background-color:white;--mat-expansion-container-text-color:rgba(0, 0, 0, .87);--mat-expansion-actions-divider-color:rgba(0, 0, 0, .12);--mat-expansion-header-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-expansion-header-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-expansion-header-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-expansion-header-text-color:rgba(0, 0, 0, .87);--mat-expansion-header-description-color:rgba(0, 0, 0, .54);--mat-expansion-header-indicator-color:rgba(0, 0, 0, .54)}html{--mat-expansion-header-collapsed-state-height:48px;--mat-expansion-header-expanded-state-height:64px}html{--mat-icon-color:inherit}html{--mat-sidenav-container-divider-color:rgba(0, 0, 0, .12);--mat-sidenav-container-background-color:white;--mat-sidenav-container-text-color:rgba(0, 0, 0, .87);--mat-sidenav-content-background-color:#fafafa;--mat-sidenav-content-text-color:rgba(0, 0, 0, .87);--mat-sidenav-scrim-color:rgba(0, 0, 0, .6)}html{--mat-stepper-header-icon-foreground-color:white;--mat-stepper-header-selected-state-icon-background-color:#0052e0;--mat-stepper-header-selected-state-icon-foreground-color:white;--mat-stepper-header-done-state-icon-background-color:#0052e0;--mat-stepper-header-done-state-icon-foreground-color:white;--mat-stepper-header-edit-state-icon-background-color:#0052e0;--mat-stepper-header-edit-state-icon-foreground-color:white;--mat-stepper-container-color:white;--mat-stepper-line-color:rgba(0, 0, 0, .12);--mat-stepper-header-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-stepper-header-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-stepper-header-label-text-color:rgba(0, 0, 0, .54);--mat-stepper-header-optional-label-text-color:rgba(0, 0, 0, .54);--mat-stepper-header-selected-state-label-text-color:rgba(0, 0, 0, .87);--mat-stepper-header-error-state-label-text-color:#d81e05;--mat-stepper-header-icon-background-color:rgba(0, 0, 0, .54);--mat-stepper-header-error-state-icon-foreground-color:#d81e05;--mat-stepper-header-error-state-icon-background-color:transparent}html{--mat-stepper-header-height:72px}html{--mat-toolbar-container-background-color:whitesmoke;--mat-toolbar-container-text-color:rgba(0, 0, 0, .87)}html{--mat-toolbar-standard-height:64px;--mat-toolbar-mobile-height:56px}@charset \"UTF-8\";:root{--blue:#0052E0;--indigo:#2C119D;--purple:#6E18A9;--pink:#D84B8E;--red:#D81E05;--orange:#FCAB16;--yellow:#FCD116;--green:#4eb807;--teal:#A8C8FF;--cyan:#00A3F5;--white:#fff;--gray:#e0e0e0;--gray-dark:#616161;--purple-dark:#551A8B;--yellow-dark:#e8c014;--primary:#FCD116;--secondary:#616161;--success:#4eb807;--info:#0052E0;--warning:#FCAB16;--danger:#D81E05;--light:#f5f5f5;--dark:#000;--breakpoint-xs:0;--breakpoint-sm:576px;--breakpoint-md:768px;--breakpoint-lg:992px;--breakpoint-xl:1250px;--font-family-sans-serif:Roboto, \"Helvetica Neue\", Helvetica, Arial, sans-serif;--font-family-monospace:SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace}*,*:before,*:after{box-sizing:border-box}html{font-family:sans-serif;line-height:1.15;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;-ms-overflow-style:scrollbar;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{margin:0;font-family:Roboto,Helvetica Neue,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:400;line-height:1.5;color:#000;text-align:left;background-color:#f5f5f5}@media print{*,*:before,*:after{text-shadow:none!important;box-shadow:none!important}@page{size:a3}body{min-width:992px!important}}body{padding-top:64px}@media print{body{padding-top:1rem}}html{--mat-option-selected-state-label-text-color:rgba(0,0,0,.87) !important;--mat-select-trigger-text-font:Roboto,\"Helvetica Neue\",sans-serif !important;--mat-select-trigger-text-size:14px !important;--mdc-outlined-text-field-focus-label-text-color:#0052e0 !important;--mdc-outlined-text-field-label-text-tracking:normal !important;--mat-select-placeholder-text-color:rgba(0, 0, 0, .42) !important;--mdc-outlined-text-field-input-text-placeholder-color:rgba(0, 0, 0, .42) !important}",
+              "'gtm.js'});var f=d.getElementsByTagName(s)[0],"
+            ],
+            "raw_data": "<!doctype html>\n<html lang=\"en\" data-critters-container>\n<head>\n  <meta charset=\"utf-8\">\n  <title>My Estes: Shipment Tracking</title>\n  <base href=\"/myestes/shipment-tracking/\">\n  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n  <script type=\"text/javascript\">\n        window.dataLayer = window.dataLayer || [];\n  </script>\n  <!-- Google Tag Manager -->\n  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\n  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\n  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n  })(window,document,'script','dataLayer','GTM-P2R86FD');</script>\n  <!-- End Google Tag Manager -->\n<style>@import\"https://fonts.googleapis.com/icon?family=Material+Icons\";html{--mat-badge-text-font:Roboto,",
+            "method": "Apple Silicon Breakthrough",
+            "barrier_solved": "ARM64 CPU Architecture",
+            "elapsed_time": 151.88102412223816,
+            "timestamp": 1752165182.191276
+          },
+          {
+            "success": true,
+            "tracking_number": "2345678901",
+            "carrier": "Estes Express",
+            "status": "'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+            "details": [
+              "'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+              "Roboto, sans-serif;--mat-datepicker-calendar-text-size:13px;--mat-datepicker-calendar-body-label-text-size:14px;--mat-datepicker-calendar-body-label-text-weight:500;--mat-datepicker-calendar-period-button-text-size:14px;--mat-datepicker-calendar-period-button-text-weight:500;--mat-datepicker-calendar-header-text-size:11px;--mat-datepicker-calendar-header-text-weight:400}html{--mat-expansion-header-text-font:Roboto, sans-serif;--mat-expansion-header-text-size:14px;--mat-expansion-header-text-weight:500;--mat-expansion-header-text-line-height:inherit;--mat-expansion-header-text-tracking:inherit;--mat-expansion-container-text-font:Roboto, sans-serif;--mat-expansion-container-text-line-height:20px;--mat-expansion-container-text-size:14px;--mat-expansion-container-text-tracking:.0178571429em;--mat-expansion-container-text-weight:400}html{--mat-grid-list-tile-header-primary-text-size:14px;--mat-grid-list-tile-header-secondary-text-size:12px;--mat-grid-list-tile-footer-primary-text-size:14px;--mat-grid-list-tile-footer-secondary-text-size:12px}html{--mat-stepper-container-text-font:Roboto, sans-serif;--mat-stepper-header-label-text-font:Roboto, sans-serif;--mat-stepper-header-label-text-size:14px;--mat-stepper-header-label-text-weight:400;--mat-stepper-header-error-state-label-text-size:16px;--mat-stepper-header-selected-state-label-text-size:16px;--mat-stepper-header-selected-state-label-text-weight:400}html{--mat-toolbar-title-text-font:Roboto, sans-serif;--mat-toolbar-title-text-line-height:32px;--mat-toolbar-title-text-size:20px;--mat-toolbar-title-text-tracking:.0125em;--mat-toolbar-title-text-weight:500}html{--mat-option-label-text-font:Roboto, sans-serif;--mat-option-label-text-line-height:24px;--mat-option-label-text-size:16px;--mat-option-label-text-tracking:.03125em;--mat-option-label-text-weight:400}html{--mat-optgroup-label-text-font:Roboto, sans-serif;--mat-optgroup-label-text-line-height:24px;--mat-optgroup-label-text-size:16px;--mat-optgroup-label-text-tracking:.03125em;--mat-optgroup-label-text-weight:400}html{--mdc-filled-text-field-label-text-font:Roboto, sans-serif;--mdc-filled-text-field-label-text-size:16px;--mdc-filled-text-field-label-text-tracking:.03125em;--mdc-filled-text-field-label-text-weight:400;--mdc-outlined-text-field-label-text-font:Roboto, sans-serif;--mdc-outlined-text-field-label-text-size:16px;--mdc-outlined-text-field-label-text-tracking:.03125em;--mdc-outlined-text-field-label-text-weight:400;--mat-form-field-container-text-font:Roboto, sans-serif;--mat-form-field-container-text-line-height:24px;--mat-form-field-container-text-size:16px;--mat-form-field-container-text-tracking:.03125em;--mat-form-field-container-text-weight:400;--mat-form-field-outlined-label-text-populated-size:16px;--mat-form-field-subscript-text-font:Roboto, sans-serif;--mat-form-field-subscript-text-line-height:20px;--mat-form-field-subscript-text-size:12px;--mat-form-field-subscript-text-tracking:.0333333333em;--mat-form-field-subscript-text-weight:400}html{--mat-select-trigger-text-font:Roboto, sans-serif;--mat-select-trigger-text-line-height:24px;--mat-select-trigger-text-size:16px;--mat-select-trigger-text-tracking:.03125em;--mat-select-trigger-text-weight:400}html{--mat-menu-item-label-text-font:Roboto, sans-serif;--mat-menu-item-label-text-size:16px;--mat-menu-item-label-text-tracking:.03125em;--mat-menu-item-label-text-line-height:24px;--mat-menu-item-label-text-weight:400}html{--mat-paginator-container-text-font:Roboto, sans-serif;--mat-paginator-container-text-line-height:20px;--mat-paginator-container-text-size:12px;--mat-paginator-container-text-tracking:.0333333333em;--mat-paginator-container-text-weight:400;--mat-paginator-select-trigger-text-size:12px}html{--mat-table-header-headline-font:Roboto, sans-serif;--mat-table-header-headline-line-height:22px;--mat-table-header-headline-size:14px;--mat-table-header-headline-weight:500;--mat-table-header-headline-tracking:.0071428571em;--mat-table-row-item-label-text-font:Roboto, sans-serif;--mat-table-row-item-label-text-line-height:20px;--mat-table-row-item-label-text-size:14px;--mat-table-row-item-label-text-weight:400;--mat-table-row-item-label-text-tracking:.0178571429em;--mat-table-footer-supporting-text-font:Roboto, sans-serif;--mat-table-footer-supporting-text-line-height:20px;--mat-table-footer-supporting-text-size:14px;--mat-table-footer-supporting-text-weight:400;--mat-table-footer-supporting-text-tracking:.0178571429em}html{--mat-option-selected-state-label-text-color:#0052e0;--mat-option-label-text-color:rgba(0, 0, 0, .87);--mat-option-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-option-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-option-selected-state-layer-color:rgba(0, 0, 0, .04)}html{--mat-optgroup-label-text-color:rgba(0, 0, 0, .87)}html{--mdc-filled-text-field-caret-color:#0052e0;--mdc-filled-text-field-focus-active-indicator-color:#0052e0;--mdc-filled-text-field-focus-label-text-color:rgba(0, 82, 224, .87);--mdc-filled-text-field-container-color:whitesmoke;--mdc-filled-text-field-disabled-container-color:#fafafa;--mdc-filled-text-field-label-text-color:rgba(0, 0, 0, .6);--mdc-filled-text-field-disabled-label-text-color:rgba(0, 0, 0, .38);--mdc-filled-text-field-input-text-color:rgba(0, 0, 0, .87);--mdc-filled-text-field-disabled-input-text-color:rgba(0, 0, 0, .38);--mdc-filled-text-field-input-text-placeholder-color:rgba(0, 0, 0, .6);--mdc-filled-text-field-error-focus-label-text-color:#d81e05;--mdc-filled-text-field-error-label-text-color:#d81e05;--mdc-filled-text-field-error-caret-color:#d81e05;--mdc-filled-text-field-active-indicator-color:rgba(0, 0, 0, .42);--mdc-filled-text-field-disabled-active-indicator-color:rgba(0, 0, 0, .06);--mdc-filled-text-field-hover-active-indicator-color:rgba(0, 0, 0, .87);--mdc-filled-text-field-error-active-indicator-color:#d81e05;--mdc-filled-text-field-error-focus-active-indicator-color:#d81e05;--mdc-filled-text-field-error-hover-active-indicator-color:#d81e05;--mdc-outlined-text-field-caret-color:#0052e0;--mdc-outlined-text-field-focus-outline-color:#0052e0;--mdc-outlined-text-field-focus-label-text-color:rgba(0, 82, 224, .87);--mdc-outlined-text-field-label-text-color:rgba(0, 0, 0, .6);--mdc-outlined-text-field-disabled-label-text-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-input-text-color:rgba(0, 0, 0, .87);--mdc-outlined-text-field-disabled-input-text-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-input-text-placeholder-color:rgba(0, 0, 0, .6);--mdc-outlined-text-field-error-caret-color:#d81e05;--mdc-outlined-text-field-error-focus-label-text-color:#d81e05;--mdc-outlined-text-field-error-label-text-color:#d81e05;--mdc-outlined-text-field-outline-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-disabled-outline-color:rgba(0, 0, 0, .06);--mdc-outlined-text-field-hover-outline-color:rgba(0, 0, 0, .87);--mdc-outlined-text-field-error-focus-outline-color:#d81e05;--mdc-outlined-text-field-error-hover-outline-color:#d81e05;--mdc-outlined-text-field-error-outline-color:#d81e05;--mat-form-field-disabled-input-text-placeholder-color:rgba(0, 0, 0, .38)}html{--mat-select-panel-background-color:white;--mat-select-enabled-trigger-text-color:rgba(0, 0, 0, .87);--mat-select-disabled-trigger-text-color:rgba(0, 0, 0, .38);--mat-select-placeholder-text-color:rgba(0, 0, 0, .6);--mat-select-enabled-arrow-color:rgba(0, 0, 0, .54);--mat-select-disabled-arrow-color:rgba(0, 0, 0, .38);--mat-select-focused-arrow-color:rgba(0, 82, 224, .87);--mat-select-invalid-arrow-color:rgba(216, 30, 5, .87)}html{--mat-autocomplete-background-color:white}html{--mat-menu-item-label-text-color:rgba(0, 0, 0, .87);--mat-menu-item-icon-color:rgba(0, 0, 0, .87);--mat-menu-item-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-menu-item-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-menu-container-color:white}html{--mat-paginator-container-text-color:rgba(0, 0, 0, .87);--mat-paginator-container-background-color:white;--mat-paginator-enabled-icon-color:rgba(0, 0, 0, .54);--mat-paginator-disabled-icon-color:rgba(0, 0, 0, .12)}html{--mat-paginator-container-size:56px}html{--mdc-checkbox-disabled-selected-icon-color:rgba(0, 0, 0, .38);--mdc-checkbox-disabled-unselected-icon-color:rgba(0, 0, 0, .38);--mdc-checkbox-selected-checkmark-color:#000;--mdc-checkbox-selected-focus-icon-color:#fcd116;--mdc-checkbox-selected-hover-icon-color:#fcd116;--mdc-checkbox-selected-icon-color:#fcd116;--mdc-checkbox-selected-pressed-icon-color:#fcd116;--mdc-checkbox-unselected-focus-icon-color:#212121;--mdc-checkbox-unselected-hover-icon-color:#212121;--mdc-checkbox-unselected-icon-color:rgba(0, 0, 0, .54);--mdc-checkbox-unselected-pressed-icon-color:rgba(0, 0, 0, .54);--mdc-checkbox-selected-focus-state-layer-color:#fcd116;--mdc-checkbox-selected-hover-state-layer-color:#fcd116;--mdc-checkbox-selected-pressed-state-layer-color:#fcd116;--mdc-checkbox-unselected-focus-state-layer-color:black;--mdc-checkbox-unselected-hover-state-layer-color:black;--mdc-checkbox-unselected-pressed-state-layer-color:black}html{--mdc-checkbox-state-layer-size:40px}html{--mat-table-background-color:white;--mat-table-header-headline-color:rgba(0, 0, 0, .87);--mat-table-row-item-label-text-color:rgba(0, 0, 0, .87);--mat-table-row-item-outline-color:rgba(0, 0, 0, .12)}html{--mat-table-header-container-height:56px;--mat-table-footer-container-height:52px;--mat-table-row-item-container-height:52px}html{--mat-badge-background-color:#0052e0;--mat-badge-text-color:white;--mat-badge-disabled-state-background-color:#b9b9b9;--mat-badge-disabled-state-text-color:rgba(0, 0, 0, .38)}html{--mat-bottom-sheet-container-text-color:rgba(0, 0, 0, .87);--mat-bottom-sheet-container-background-color:white}html{--mat-legacy-button-toggle-text-color:rgba(0, 0, 0, .38);--mat-legacy-button-toggle-state-layer-color:rgba(0, 0, 0, .12);--mat-legacy-button-toggle-selected-state-text-color:rgba(0, 0, 0, .54);--mat-legacy-button-toggle-selected-state-background-color:#e0e0e0;--mat-legacy-button-toggle-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-legacy-button-toggle-disabled-state-background-color:#eeeeee;--mat-legacy-button-toggle-disabled-selected-state-background-color:#bdbdbd;--mat-standard-button-toggle-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-background-color:white;--mat-standard-button-toggle-state-layer-color:black;--mat-standard-button-toggle-selected-state-background-color:#e0e0e0;--mat-standard-button-toggle-selected-state-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-standard-button-toggle-disabled-state-background-color:white;--mat-standard-button-toggle-disabled-selected-state-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-disabled-selected-state-background-color:#bdbdbd;--mat-standard-button-toggle-divider-color:#e0e0e0}html{--mat-standard-button-toggle-height:48px}html{--mat-datepicker-calendar-date-selected-state-text-color:white;--mat-datepicker-calendar-date-selected-state-background-color:#0052e0;--mat-datepicker-calendar-date-selected-disabled-state-background-color:rgba(0, 82, 224, .4);--mat-datepicker-calendar-date-today-selected-state-outline-color:white;--mat-datepicker-calendar-date-focus-state-background-color:rgba(0, 82, 224, .3);--mat-datepicker-calendar-date-hover-state-background-color:rgba(0, 82, 224, .3);--mat-datepicker-toggle-active-state-icon-color:#0052e0;--mat-datepicker-calendar-date-in-range-state-background-color:rgba(0, 82, 224, .2);--mat-datepicker-calendar-date-in-comparison-range-state-background-color:rgba(249, 171, 0, .2);--mat-datepicker-calendar-date-in-overlap-range-state-background-color:#a8dab5;--mat-datepicker-calendar-date-in-overlap-range-selected-state-background-color:#46a35e;--mat-datepicker-toggle-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-body-label-text-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-period-button-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-navigation-button-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-header-divider-color:rgba(0, 0, 0, .12);--mat-datepicker-calendar-header-text-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-date-today-outline-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-date-today-disabled-state-outline-color:rgba(0, 0, 0, .18);--mat-datepicker-calendar-date-text-color:rgba(0, 0, 0, .87);--mat-datepicker-calendar-date-outline-color:transparent;--mat-datepicker-calendar-date-disabled-state-text-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-date-preview-state-outline-color:rgba(0, 0, 0, .24);--mat-datepicker-range-input-separator-color:rgba(0, 0, 0, .87);--mat-datepicker-range-input-disabled-state-separator-color:rgba(0, 0, 0, .38);--mat-datepicker-range-input-disabled-state-text-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-container-background-color:white;--mat-datepicker-calendar-container-text-color:rgba(0, 0, 0, .87)}html{--mat-divider-color:rgba(0, 0, 0, .12)}html{--mat-expansion-container-background-color:white;--mat-expansion-container-text-color:rgba(0, 0, 0, .87);--mat-expansion-actions-divider-color:rgba(0, 0, 0, .12);--mat-expansion-header-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-expansion-header-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-expansion-header-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-expansion-header-text-color:rgba(0, 0, 0, .87);--mat-expansion-header-description-color:rgba(0, 0, 0, .54);--mat-expansion-header-indicator-color:rgba(0, 0, 0, .54)}html{--mat-expansion-header-collapsed-state-height:48px;--mat-expansion-header-expanded-state-height:64px}html{--mat-icon-color:inherit}html{--mat-sidenav-container-divider-color:rgba(0, 0, 0, .12);--mat-sidenav-container-background-color:white;--mat-sidenav-container-text-color:rgba(0, 0, 0, .87);--mat-sidenav-content-background-color:#fafafa;--mat-sidenav-content-text-color:rgba(0, 0, 0, .87);--mat-sidenav-scrim-color:rgba(0, 0, 0, .6)}html{--mat-stepper-header-icon-foreground-color:white;--mat-stepper-header-selected-state-icon-background-color:#0052e0;--mat-stepper-header-selected-state-icon-foreground-color:white;--mat-stepper-header-done-state-icon-background-color:#0052e0;--mat-stepper-header-done-state-icon-foreground-color:white;--mat-stepper-header-edit-state-icon-background-color:#0052e0;--mat-stepper-header-edit-state-icon-foreground-color:white;--mat-stepper-container-color:white;--mat-stepper-line-color:rgba(0, 0, 0, .12);--mat-stepper-header-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-stepper-header-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-stepper-header-label-text-color:rgba(0, 0, 0, .54);--mat-stepper-header-optional-label-text-color:rgba(0, 0, 0, .54);--mat-stepper-header-selected-state-label-text-color:rgba(0, 0, 0, .87);--mat-stepper-header-error-state-label-text-color:#d81e05;--mat-stepper-header-icon-background-color:rgba(0, 0, 0, .54);--mat-stepper-header-error-state-icon-foreground-color:#d81e05;--mat-stepper-header-error-state-icon-background-color:transparent}html{--mat-stepper-header-height:72px}html{--mat-toolbar-container-background-color:whitesmoke;--mat-toolbar-container-text-color:rgba(0, 0, 0, .87)}html{--mat-toolbar-standard-height:64px;--mat-toolbar-mobile-height:56px}@charset \"UTF-8\";:root{--blue:#0052E0;--indigo:#2C119D;--purple:#6E18A9;--pink:#D84B8E;--red:#D81E05;--orange:#FCAB16;--yellow:#FCD116;--green:#4eb807;--teal:#A8C8FF;--cyan:#00A3F5;--white:#fff;--gray:#e0e0e0;--gray-dark:#616161;--purple-dark:#551A8B;--yellow-dark:#e8c014;--primary:#FCD116;--secondary:#616161;--success:#4eb807;--info:#0052E0;--warning:#FCAB16;--danger:#D81E05;--light:#f5f5f5;--dark:#000;--breakpoint-xs:0;--breakpoint-sm:576px;--breakpoint-md:768px;--breakpoint-lg:992px;--breakpoint-xl:1250px;--font-family-sans-serif:Roboto, \"Helvetica Neue\", Helvetica, Arial, sans-serif;--font-family-monospace:SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace}*,*:before,*:after{box-sizing:border-box}html{font-family:sans-serif;line-height:1.15;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;-ms-overflow-style:scrollbar;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{margin:0;font-family:Roboto,Helvetica Neue,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:400;line-height:1.5;color:#000;text-align:left;background-color:#f5f5f5}@media print{*,*:before,*:after{text-shadow:none!important;box-shadow:none!important}@page{size:a3}body{min-width:992px!important}}body{padding-top:64px}@media print{body{padding-top:1rem}}html{--mat-option-selected-state-label-text-color:rgba(0,0,0,.87) !important;--mat-select-trigger-text-font:Roboto,\"Helvetica Neue\",sans-serif !important;--mat-select-trigger-text-size:14px !important;--mdc-outlined-text-field-focus-label-text-color:#0052e0 !important;--mdc-outlined-text-field-label-text-tracking:normal !important;--mat-select-placeholder-text-color:rgba(0, 0, 0, .42) !important;--mdc-outlined-text-field-input-text-placeholder-color:rgba(0, 0, 0, .42) !important}",
+              "'gtm.js'});var f=d.getElementsByTagName(s)[0],"
+            ],
+            "raw_data": "<!doctype html>\n<html lang=\"en\" data-critters-container>\n<head>\n  <meta charset=\"utf-8\">\n  <title>My Estes: Shipment Tracking</title>\n  <base href=\"/myestes/shipment-tracking/\">\n  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n  <script type=\"text/javascript\">\n        window.dataLayer = window.dataLayer || [];\n  </script>\n  <!-- Google Tag Manager -->\n  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\n  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\n  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n  })(window,document,'script','dataLayer','GTM-P2R86FD');</script>\n  <!-- End Google Tag Manager -->\n<style>@import\"https://fonts.googleapis.com/icon?family=Material+Icons\";html{--mat-badge-text-font:Roboto,",
+            "method": "Apple Silicon Breakthrough",
+            "barrier_solved": "ARM64 CPU Architecture",
+            "elapsed_time": 117.29890894889832,
+            "timestamp": 1752165147.609268
+          },
+          {
+            "success": true,
+            "tracking_number": "3456789012",
+            "carrier": "Estes Express",
+            "status": "'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+            "details": [
+              "'gtm.js'});var f=d.getElementsByTagName(s)[0],",
+              "Roboto, sans-serif;--mat-datepicker-calendar-text-size:13px;--mat-datepicker-calendar-body-label-text-size:14px;--mat-datepicker-calendar-body-label-text-weight:500;--mat-datepicker-calendar-period-button-text-size:14px;--mat-datepicker-calendar-period-button-text-weight:500;--mat-datepicker-calendar-header-text-size:11px;--mat-datepicker-calendar-header-text-weight:400}html{--mat-expansion-header-text-font:Roboto, sans-serif;--mat-expansion-header-text-size:14px;--mat-expansion-header-text-weight:500;--mat-expansion-header-text-line-height:inherit;--mat-expansion-header-text-tracking:inherit;--mat-expansion-container-text-font:Roboto, sans-serif;--mat-expansion-container-text-line-height:20px;--mat-expansion-container-text-size:14px;--mat-expansion-container-text-tracking:.0178571429em;--mat-expansion-container-text-weight:400}html{--mat-grid-list-tile-header-primary-text-size:14px;--mat-grid-list-tile-header-secondary-text-size:12px;--mat-grid-list-tile-footer-primary-text-size:14px;--mat-grid-list-tile-footer-secondary-text-size:12px}html{--mat-stepper-container-text-font:Roboto, sans-serif;--mat-stepper-header-label-text-font:Roboto, sans-serif;--mat-stepper-header-label-text-size:14px;--mat-stepper-header-label-text-weight:400;--mat-stepper-header-error-state-label-text-size:16px;--mat-stepper-header-selected-state-label-text-size:16px;--mat-stepper-header-selected-state-label-text-weight:400}html{--mat-toolbar-title-text-font:Roboto, sans-serif;--mat-toolbar-title-text-line-height:32px;--mat-toolbar-title-text-size:20px;--mat-toolbar-title-text-tracking:.0125em;--mat-toolbar-title-text-weight:500}html{--mat-option-label-text-font:Roboto, sans-serif;--mat-option-label-text-line-height:24px;--mat-option-label-text-size:16px;--mat-option-label-text-tracking:.03125em;--mat-option-label-text-weight:400}html{--mat-optgroup-label-text-font:Roboto, sans-serif;--mat-optgroup-label-text-line-height:24px;--mat-optgroup-label-text-size:16px;--mat-optgroup-label-text-tracking:.03125em;--mat-optgroup-label-text-weight:400}html{--mdc-filled-text-field-label-text-font:Roboto, sans-serif;--mdc-filled-text-field-label-text-size:16px;--mdc-filled-text-field-label-text-tracking:.03125em;--mdc-filled-text-field-label-text-weight:400;--mdc-outlined-text-field-label-text-font:Roboto, sans-serif;--mdc-outlined-text-field-label-text-size:16px;--mdc-outlined-text-field-label-text-tracking:.03125em;--mdc-outlined-text-field-label-text-weight:400;--mat-form-field-container-text-font:Roboto, sans-serif;--mat-form-field-container-text-line-height:24px;--mat-form-field-container-text-size:16px;--mat-form-field-container-text-tracking:.03125em;--mat-form-field-container-text-weight:400;--mat-form-field-outlined-label-text-populated-size:16px;--mat-form-field-subscript-text-font:Roboto, sans-serif;--mat-form-field-subscript-text-line-height:20px;--mat-form-field-subscript-text-size:12px;--mat-form-field-subscript-text-tracking:.0333333333em;--mat-form-field-subscript-text-weight:400}html{--mat-select-trigger-text-font:Roboto, sans-serif;--mat-select-trigger-text-line-height:24px;--mat-select-trigger-text-size:16px;--mat-select-trigger-text-tracking:.03125em;--mat-select-trigger-text-weight:400}html{--mat-menu-item-label-text-font:Roboto, sans-serif;--mat-menu-item-label-text-size:16px;--mat-menu-item-label-text-tracking:.03125em;--mat-menu-item-label-text-line-height:24px;--mat-menu-item-label-text-weight:400}html{--mat-paginator-container-text-font:Roboto, sans-serif;--mat-paginator-container-text-line-height:20px;--mat-paginator-container-text-size:12px;--mat-paginator-container-text-tracking:.0333333333em;--mat-paginator-container-text-weight:400;--mat-paginator-select-trigger-text-size:12px}html{--mat-table-header-headline-font:Roboto, sans-serif;--mat-table-header-headline-line-height:22px;--mat-table-header-headline-size:14px;--mat-table-header-headline-weight:500;--mat-table-header-headline-tracking:.0071428571em;--mat-table-row-item-label-text-font:Roboto, sans-serif;--mat-table-row-item-label-text-line-height:20px;--mat-table-row-item-label-text-size:14px;--mat-table-row-item-label-text-weight:400;--mat-table-row-item-label-text-tracking:.0178571429em;--mat-table-footer-supporting-text-font:Roboto, sans-serif;--mat-table-footer-supporting-text-line-height:20px;--mat-table-footer-supporting-text-size:14px;--mat-table-footer-supporting-text-weight:400;--mat-table-footer-supporting-text-tracking:.0178571429em}html{--mat-option-selected-state-label-text-color:#0052e0;--mat-option-label-text-color:rgba(0, 0, 0, .87);--mat-option-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-option-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-option-selected-state-layer-color:rgba(0, 0, 0, .04)}html{--mat-optgroup-label-text-color:rgba(0, 0, 0, .87)}html{--mdc-filled-text-field-caret-color:#0052e0;--mdc-filled-text-field-focus-active-indicator-color:#0052e0;--mdc-filled-text-field-focus-label-text-color:rgba(0, 82, 224, .87);--mdc-filled-text-field-container-color:whitesmoke;--mdc-filled-text-field-disabled-container-color:#fafafa;--mdc-filled-text-field-label-text-color:rgba(0, 0, 0, .6);--mdc-filled-text-field-disabled-label-text-color:rgba(0, 0, 0, .38);--mdc-filled-text-field-input-text-color:rgba(0, 0, 0, .87);--mdc-filled-text-field-disabled-input-text-color:rgba(0, 0, 0, .38);--mdc-filled-text-field-input-text-placeholder-color:rgba(0, 0, 0, .6);--mdc-filled-text-field-error-focus-label-text-color:#d81e05;--mdc-filled-text-field-error-label-text-color:#d81e05;--mdc-filled-text-field-error-caret-color:#d81e05;--mdc-filled-text-field-active-indicator-color:rgba(0, 0, 0, .42);--mdc-filled-text-field-disabled-active-indicator-color:rgba(0, 0, 0, .06);--mdc-filled-text-field-hover-active-indicator-color:rgba(0, 0, 0, .87);--mdc-filled-text-field-error-active-indicator-color:#d81e05;--mdc-filled-text-field-error-focus-active-indicator-color:#d81e05;--mdc-filled-text-field-error-hover-active-indicator-color:#d81e05;--mdc-outlined-text-field-caret-color:#0052e0;--mdc-outlined-text-field-focus-outline-color:#0052e0;--mdc-outlined-text-field-focus-label-text-color:rgba(0, 82, 224, .87);--mdc-outlined-text-field-label-text-color:rgba(0, 0, 0, .6);--mdc-outlined-text-field-disabled-label-text-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-input-text-color:rgba(0, 0, 0, .87);--mdc-outlined-text-field-disabled-input-text-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-input-text-placeholder-color:rgba(0, 0, 0, .6);--mdc-outlined-text-field-error-caret-color:#d81e05;--mdc-outlined-text-field-error-focus-label-text-color:#d81e05;--mdc-outlined-text-field-error-label-text-color:#d81e05;--mdc-outlined-text-field-outline-color:rgba(0, 0, 0, .38);--mdc-outlined-text-field-disabled-outline-color:rgba(0, 0, 0, .06);--mdc-outlined-text-field-hover-outline-color:rgba(0, 0, 0, .87);--mdc-outlined-text-field-error-focus-outline-color:#d81e05;--mdc-outlined-text-field-error-hover-outline-color:#d81e05;--mdc-outlined-text-field-error-outline-color:#d81e05;--mat-form-field-disabled-input-text-placeholder-color:rgba(0, 0, 0, .38)}html{--mat-select-panel-background-color:white;--mat-select-enabled-trigger-text-color:rgba(0, 0, 0, .87);--mat-select-disabled-trigger-text-color:rgba(0, 0, 0, .38);--mat-select-placeholder-text-color:rgba(0, 0, 0, .6);--mat-select-enabled-arrow-color:rgba(0, 0, 0, .54);--mat-select-disabled-arrow-color:rgba(0, 0, 0, .38);--mat-select-focused-arrow-color:rgba(0, 82, 224, .87);--mat-select-invalid-arrow-color:rgba(216, 30, 5, .87)}html{--mat-autocomplete-background-color:white}html{--mat-menu-item-label-text-color:rgba(0, 0, 0, .87);--mat-menu-item-icon-color:rgba(0, 0, 0, .87);--mat-menu-item-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-menu-item-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-menu-container-color:white}html{--mat-paginator-container-text-color:rgba(0, 0, 0, .87);--mat-paginator-container-background-color:white;--mat-paginator-enabled-icon-color:rgba(0, 0, 0, .54);--mat-paginator-disabled-icon-color:rgba(0, 0, 0, .12)}html{--mat-paginator-container-size:56px}html{--mdc-checkbox-disabled-selected-icon-color:rgba(0, 0, 0, .38);--mdc-checkbox-disabled-unselected-icon-color:rgba(0, 0, 0, .38);--mdc-checkbox-selected-checkmark-color:#000;--mdc-checkbox-selected-focus-icon-color:#fcd116;--mdc-checkbox-selected-hover-icon-color:#fcd116;--mdc-checkbox-selected-icon-color:#fcd116;--mdc-checkbox-selected-pressed-icon-color:#fcd116;--mdc-checkbox-unselected-focus-icon-color:#212121;--mdc-checkbox-unselected-hover-icon-color:#212121;--mdc-checkbox-unselected-icon-color:rgba(0, 0, 0, .54);--mdc-checkbox-unselected-pressed-icon-color:rgba(0, 0, 0, .54);--mdc-checkbox-selected-focus-state-layer-color:#fcd116;--mdc-checkbox-selected-hover-state-layer-color:#fcd116;--mdc-checkbox-selected-pressed-state-layer-color:#fcd116;--mdc-checkbox-unselected-focus-state-layer-color:black;--mdc-checkbox-unselected-hover-state-layer-color:black;--mdc-checkbox-unselected-pressed-state-layer-color:black}html{--mdc-checkbox-state-layer-size:40px}html{--mat-table-background-color:white;--mat-table-header-headline-color:rgba(0, 0, 0, .87);--mat-table-row-item-label-text-color:rgba(0, 0, 0, .87);--mat-table-row-item-outline-color:rgba(0, 0, 0, .12)}html{--mat-table-header-container-height:56px;--mat-table-footer-container-height:52px;--mat-table-row-item-container-height:52px}html{--mat-badge-background-color:#0052e0;--mat-badge-text-color:white;--mat-badge-disabled-state-background-color:#b9b9b9;--mat-badge-disabled-state-text-color:rgba(0, 0, 0, .38)}html{--mat-bottom-sheet-container-text-color:rgba(0, 0, 0, .87);--mat-bottom-sheet-container-background-color:white}html{--mat-legacy-button-toggle-text-color:rgba(0, 0, 0, .38);--mat-legacy-button-toggle-state-layer-color:rgba(0, 0, 0, .12);--mat-legacy-button-toggle-selected-state-text-color:rgba(0, 0, 0, .54);--mat-legacy-button-toggle-selected-state-background-color:#e0e0e0;--mat-legacy-button-toggle-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-legacy-button-toggle-disabled-state-background-color:#eeeeee;--mat-legacy-button-toggle-disabled-selected-state-background-color:#bdbdbd;--mat-standard-button-toggle-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-background-color:white;--mat-standard-button-toggle-state-layer-color:black;--mat-standard-button-toggle-selected-state-background-color:#e0e0e0;--mat-standard-button-toggle-selected-state-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-standard-button-toggle-disabled-state-background-color:white;--mat-standard-button-toggle-disabled-selected-state-text-color:rgba(0, 0, 0, .87);--mat-standard-button-toggle-disabled-selected-state-background-color:#bdbdbd;--mat-standard-button-toggle-divider-color:#e0e0e0}html{--mat-standard-button-toggle-height:48px}html{--mat-datepicker-calendar-date-selected-state-text-color:white;--mat-datepicker-calendar-date-selected-state-background-color:#0052e0;--mat-datepicker-calendar-date-selected-disabled-state-background-color:rgba(0, 82, 224, .4);--mat-datepicker-calendar-date-today-selected-state-outline-color:white;--mat-datepicker-calendar-date-focus-state-background-color:rgba(0, 82, 224, .3);--mat-datepicker-calendar-date-hover-state-background-color:rgba(0, 82, 224, .3);--mat-datepicker-toggle-active-state-icon-color:#0052e0;--mat-datepicker-calendar-date-in-range-state-background-color:rgba(0, 82, 224, .2);--mat-datepicker-calendar-date-in-comparison-range-state-background-color:rgba(249, 171, 0, .2);--mat-datepicker-calendar-date-in-overlap-range-state-background-color:#a8dab5;--mat-datepicker-calendar-date-in-overlap-range-selected-state-background-color:#46a35e;--mat-datepicker-toggle-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-body-label-text-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-period-button-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-navigation-button-icon-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-header-divider-color:rgba(0, 0, 0, .12);--mat-datepicker-calendar-header-text-color:rgba(0, 0, 0, .54);--mat-datepicker-calendar-date-today-outline-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-date-today-disabled-state-outline-color:rgba(0, 0, 0, .18);--mat-datepicker-calendar-date-text-color:rgba(0, 0, 0, .87);--mat-datepicker-calendar-date-outline-color:transparent;--mat-datepicker-calendar-date-disabled-state-text-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-date-preview-state-outline-color:rgba(0, 0, 0, .24);--mat-datepicker-range-input-separator-color:rgba(0, 0, 0, .87);--mat-datepicker-range-input-disabled-state-separator-color:rgba(0, 0, 0, .38);--mat-datepicker-range-input-disabled-state-text-color:rgba(0, 0, 0, .38);--mat-datepicker-calendar-container-background-color:white;--mat-datepicker-calendar-container-text-color:rgba(0, 0, 0, .87)}html{--mat-divider-color:rgba(0, 0, 0, .12)}html{--mat-expansion-container-background-color:white;--mat-expansion-container-text-color:rgba(0, 0, 0, .87);--mat-expansion-actions-divider-color:rgba(0, 0, 0, .12);--mat-expansion-header-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-expansion-header-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-expansion-header-disabled-state-text-color:rgba(0, 0, 0, .26);--mat-expansion-header-text-color:rgba(0, 0, 0, .87);--mat-expansion-header-description-color:rgba(0, 0, 0, .54);--mat-expansion-header-indicator-color:rgba(0, 0, 0, .54)}html{--mat-expansion-header-collapsed-state-height:48px;--mat-expansion-header-expanded-state-height:64px}html{--mat-icon-color:inherit}html{--mat-sidenav-container-divider-color:rgba(0, 0, 0, .12);--mat-sidenav-container-background-color:white;--mat-sidenav-container-text-color:rgba(0, 0, 0, .87);--mat-sidenav-content-background-color:#fafafa;--mat-sidenav-content-text-color:rgba(0, 0, 0, .87);--mat-sidenav-scrim-color:rgba(0, 0, 0, .6)}html{--mat-stepper-header-icon-foreground-color:white;--mat-stepper-header-selected-state-icon-background-color:#0052e0;--mat-stepper-header-selected-state-icon-foreground-color:white;--mat-stepper-header-done-state-icon-background-color:#0052e0;--mat-stepper-header-done-state-icon-foreground-color:white;--mat-stepper-header-edit-state-icon-background-color:#0052e0;--mat-stepper-header-edit-state-icon-foreground-color:white;--mat-stepper-container-color:white;--mat-stepper-line-color:rgba(0, 0, 0, .12);--mat-stepper-header-hover-state-layer-color:rgba(0, 0, 0, .04);--mat-stepper-header-focus-state-layer-color:rgba(0, 0, 0, .04);--mat-stepper-header-label-text-color:rgba(0, 0, 0, .54);--mat-stepper-header-optional-label-text-color:rgba(0, 0, 0, .54);--mat-stepper-header-selected-state-label-text-color:rgba(0, 0, 0, .87);--mat-stepper-header-error-state-label-text-color:#d81e05;--mat-stepper-header-icon-background-color:rgba(0, 0, 0, .54);--mat-stepper-header-error-state-icon-foreground-color:#d81e05;--mat-stepper-header-error-state-icon-background-color:transparent}html{--mat-stepper-header-height:72px}html{--mat-toolbar-container-background-color:whitesmoke;--mat-toolbar-container-text-color:rgba(0, 0, 0, .87)}html{--mat-toolbar-standard-height:64px;--mat-toolbar-mobile-height:56px}@charset \"UTF-8\";:root{--blue:#0052E0;--indigo:#2C119D;--purple:#6E18A9;--pink:#D84B8E;--red:#D81E05;--orange:#FCAB16;--yellow:#FCD116;--green:#4eb807;--teal:#A8C8FF;--cyan:#00A3F5;--white:#fff;--gray:#e0e0e0;--gray-dark:#616161;--purple-dark:#551A8B;--yellow-dark:#e8c014;--primary:#FCD116;--secondary:#616161;--success:#4eb807;--info:#0052E0;--warning:#FCAB16;--danger:#D81E05;--light:#f5f5f5;--dark:#000;--breakpoint-xs:0;--breakpoint-sm:576px;--breakpoint-md:768px;--breakpoint-lg:992px;--breakpoint-xl:1250px;--font-family-sans-serif:Roboto, \"Helvetica Neue\", Helvetica, Arial, sans-serif;--font-family-monospace:SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace}*,*:before,*:after{box-sizing:border-box}html{font-family:sans-serif;line-height:1.15;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;-ms-overflow-style:scrollbar;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{margin:0;font-family:Roboto,Helvetica Neue,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:400;line-height:1.5;color:#000;text-align:left;background-color:#f5f5f5}@media print{*,*:before,*:after{text-shadow:none!important;box-shadow:none!important}@page{size:a3}body{min-width:992px!important}}body{padding-top:64px}@media print{body{padding-top:1rem}}html{--mat-option-selected-state-label-text-color:rgba(0,0,0,.87) !important;--mat-select-trigger-text-font:Roboto,\"Helvetica Neue\",sans-serif !important;--mat-select-trigger-text-size:14px !important;--mdc-outlined-text-field-focus-label-text-color:#0052e0 !important;--mdc-outlined-text-field-label-text-tracking:normal !important;--mat-select-placeholder-text-color:rgba(0, 0, 0, .42) !important;--mdc-outlined-text-field-input-text-placeholder-color:rgba(0, 0, 0, .42) !important}",
+              "'gtm.js'});var f=d.getElementsByTagName(s)[0],"
+            ],
+            "raw_data": "<!doctype html>\n<html lang=\"en\" data-critters-container>\n<head>\n  <meta charset=\"utf-8\">\n  <title>My Estes: Shipment Tracking</title>\n  <base href=\"/myestes/shipment-tracking/\">\n  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n  <script type=\"text/javascript\">\n        window.dataLayer = window.dataLayer || [];\n  </script>\n  <!-- Google Tag Manager -->\n  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\n  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\n  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n  })(window,document,'script','dataLayer','GTM-P2R86FD');</script>\n  <!-- End Google Tag Manager -->\n<style>@import\"https://fonts.googleapis.com/icon?family=Material+Icons\";html{--mat-badge-text-font:Roboto,",
+            "method": "Apple Silicon Breakthrough",
+            "barrier_solved": "ARM64 CPU Architecture",
+            "elapsed_time": 49.63338017463684,
+            "timestamp": 1752165079.943833
+          },
+          {
+            "success": true,
+            "tracking_number": "100123456789",
+            "carrier": "FedEx Freight",
+            "status": "Delivery",
+            "details": [
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              " \"\",",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">",
+              "inherit;\">",
+              "inherit;\">",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">"
+            ],
+            "raw_data": "\n<!DOCTYPE HTML>\n\n\n\n<html lang=\"en-us\" dir=\"ltr\">\n\n<head>\n\n    \n\n\t<meta charset=\"utf-8\"/>\n    <meta name=\"google-site-verification\"/>\n    <title>Page Not Found</title>\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\"/>\n    <meta name=\"description\" content=\"page not found\"/>\n    <meta name=\"keywords\"/>\n    <meta name=\"locale\" content=\"en_us\"/>\n    <meta name=\"template\" content=\"topicpage\"/>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n    <meta name=\"format-detection\" content=\"telephone=no\"/>\n    \n    <link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"/etc.clientlibs/designs/fedex-common/images/resources/fx-favicon.ico\"/>\n\n    <meta name=\"og:type\" content=\"website\"/>\n    <meta name=\"og:site_name\" content=\"FedEx\"/>\n    <meta name=\"og:url\" content=\"https://www.fedex.com/en-us/about/page-no-longer-exists.html\"/>\n    <meta name=\"og:title\" content=\"Page Not Found\"/>\n    <meta name=\"og:description\" content=\"page not found\"/>\n    \n    \n\n    <link ",
+            "method": "CloudFlare Breakthrough",
+            "barrier_solved": "CloudFlare Protection + TLS Fingerprinting",
+            "elapsed_time": 2.5427379608154297,
+            "timestamp": 1752165032.853289
+          },
+          {
+            "success": true,
+            "tracking_number": "10012345678901",
+            "carrier": "FedEx Freight",
+            "status": "Delivery",
+            "details": [
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              " \"\",",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">",
+              "inherit;\">",
+              "inherit;\">",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">"
+            ],
+            "raw_data": "\n<!DOCTYPE HTML>\n\n\n\n<html lang=\"en-us\" dir=\"ltr\">\n\n<head>\n\n    \n\n\t<meta charset=\"utf-8\"/>\n    <meta name=\"google-site-verification\"/>\n    <title>Page Not Found</title>\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\"/>\n    <meta name=\"description\" content=\"page not found\"/>\n    <meta name=\"keywords\"/>\n    <meta name=\"locale\" content=\"en_us\"/>\n    <meta name=\"template\" content=\"topicpage\"/>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n    <meta name=\"format-detection\" content=\"telephone=no\"/>\n    \n    <link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"/etc.clientlibs/designs/fedex-common/images/resources/fx-favicon.ico\"/>\n\n    <meta name=\"og:type\" content=\"website\"/>\n    <meta name=\"og:site_name\" content=\"FedEx\"/>\n    <meta name=\"og:url\" content=\"https://www.fedex.com/en-us/about/page-no-longer-exists.html\"/>\n    <meta name=\"og:title\" content=\"Page Not Found\"/>\n    <meta name=\"og:description\" content=\"page not found\"/>\n    \n    \n\n    <link ",
+            "method": "CloudFlare Breakthrough",
+            "barrier_solved": "CloudFlare Protection + TLS Fingerprinting",
+            "elapsed_time": 3.613501787185669,
+            "timestamp": 1752165036.466806
+          },
+          {
+            "success": true,
+            "tracking_number": "100234567890",
+            "carrier": "FedEx Freight",
+            "status": "Delivery",
+            "details": [
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              " \"\",",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">",
+              "inherit;\">",
+              "inherit;\">",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">"
+            ],
+            "raw_data": "\n<!DOCTYPE HTML>\n\n\n\n<html lang=\"en-us\" dir=\"ltr\">\n\n<head>\n\n    \n\n\t<meta charset=\"utf-8\"/>\n    <meta name=\"google-site-verification\"/>\n    <title>Page Not Found</title>\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\"/>\n    <meta name=\"description\" content=\"page not found\"/>\n    <meta name=\"keywords\"/>\n    <meta name=\"locale\" content=\"en_us\"/>\n    <meta name=\"template\" content=\"topicpage\"/>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n    <meta name=\"format-detection\" content=\"telephone=no\"/>\n    \n    <link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"/etc.clientlibs/designs/fedex-common/images/resources/fx-favicon.ico\"/>\n\n    <meta name=\"og:type\" content=\"website\"/>\n    <meta name=\"og:site_name\" content=\"FedEx\"/>\n    <meta name=\"og:url\" content=\"https://www.fedex.com/en-us/about/page-no-longer-exists.html\"/>\n    <meta name=\"og:title\" content=\"Page Not Found\"/>\n    <meta name=\"og:description\" content=\"page not found\"/>\n    \n    \n\n    <link ",
+            "method": "CloudFlare Breakthrough",
+            "barrier_solved": "CloudFlare Protection + TLS Fingerprinting",
+            "elapsed_time": 3.0317130088806152,
+            "timestamp": 1752165039.498579
+          },
+          {
+            "success": true,
+            "tracking_number": "100345678901",
+            "carrier": "FedEx Freight",
+            "status": "Delivery",
+            "details": [
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              "Delivery",
+              " \"\",",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">",
+              "inherit;\">",
+              "inherit;\">",
+              "//www.w3.org/2000/svg\">",
+              "//www.w3.org/2000/svg\">"
+            ],
+            "raw_data": "\n<!DOCTYPE HTML>\n\n\n\n<html lang=\"en-us\" dir=\"ltr\">\n\n<head>\n\n    \n\n\t<meta charset=\"utf-8\"/>\n    <meta name=\"google-site-verification\"/>\n    <title>Page Not Found</title>\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\"/>\n    <meta name=\"description\" content=\"page not found\"/>\n    <meta name=\"keywords\"/>\n    <meta name=\"locale\" content=\"en_us\"/>\n    <meta name=\"template\" content=\"topicpage\"/>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n    <meta name=\"format-detection\" content=\"telephone=no\"/>\n    \n    <link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"/etc.clientlibs/designs/fedex-common/images/resources/fx-favicon.ico\"/>\n\n    <meta name=\"og:type\" content=\"website\"/>\n    <meta name=\"og:site_name\" content=\"FedEx\"/>\n    <meta name=\"og:url\" content=\"https://www.fedex.com/en-us/about/page-no-longer-exists.html\"/>\n    <meta name=\"og:title\" content=\"Page Not Found\"/>\n    <meta name=\"og:description\" content=\"page not found\"/>\n    \n    \n\n    <link ",
+            "method": "CloudFlare Breakthrough",
+            "barrier_solved": "CloudFlare Protection + TLS Fingerprinting",
+            "elapsed_time": 3.2947330474853516,
+            "timestamp": 1752165042.793334
+          },
+          {
+            "success": false,
+            "error": "Legacy system not available",
+            "tracking_number": "12345678",
+            "carrier": "peninsula",
+            "elapsed_time": 4.887580871582031e-05,
+            "timestamp": 1752165042.793407
+          },
+          {
+            "success": false,
+            "error": "Legacy system not available",
+            "tracking_number": "23456789",
+            "carrier": "peninsula",
+            "elapsed_time": 3.0994415283203125e-05,
+            "timestamp": 1752165042.793442
+          },
+          {
+            "success": false,
+            "error": "Legacy system not available",
+            "tracking_number": "PEN12345",
+            "carrier": "peninsula",
+            "elapsed_time": 2.8848648071289062e-05,
+            "timestamp": 1752165042.7934752
+          },
+          {
+            "success": false,
+            "error": "Legacy system not available",
+            "tracking_number": "P1234567",
+            "carrier": "peninsula",
+            "elapsed_time": 2.6941299438476562e-05,
+            "timestamp": 1752165042.793504
+          },
+          {
+            "success": false,
+            "error": "Legacy system not available",
+            "tracking_number": "123456789",
+            "carrier": "rl",
+            "elapsed_time": 2.7894973754882812e-05,
+            "timestamp": 1752165042.793535
+          },
+          {
+            "success": false,
+            "error": "Legacy system not available",
+            "tracking_number": "234567890",
+            "carrier": "rl",
+            "elapsed_time": 2.5987625122070312e-05,
+            "timestamp": 1752165042.793565
+          },
+          {
+            "success": false,
+            "error": "Legacy system not available",
+            "tracking_number": "RL1234567",
+            "carrier": "rl",
+            "elapsed_time": 5.1021575927734375e-05,
+            "timestamp": 1752165042.793619
+          },
+          {
+            "success": false,
+            "error": "Legacy system not available",
+            "tracking_number": "R12345678",
+            "carrier": "rl",
+            "elapsed_time": 2.7894973754882812e-05,
+            "timestamp": 1752165042.793649
+          }
+        ]
+      },
+      "timestamp": "2025-07-10T11:33:02.191679"
+    }
+  ]
+}

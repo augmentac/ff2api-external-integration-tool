@@ -1,0 +1,107 @@
+{
+  "timestamp": "2025-07-10T11:17:37.643044",
+  "results": [
+    {
+      "test": "browser_automation_availability",
+      "status": "success",
+      "message": "Browser automation system is available"
+    },
+    {
+      "test": "enhanced_estes_tracking",
+      "pro_number": "0331234567",
+      "status": "error",
+      "result": {
+        "status": "error",
+        "pro_number": "0331234567",
+        "carrier": "Estes Express",
+        "error_message": "All enhanced tracking methods failed - CPU architecture and JavaScript barriers remain",
+        "tracking_timestamp": "2025-07-10T11:08:04.110425",
+        "extracted_from": "enhanced_estes_client_all_methods_failed"
+      }
+    },
+    {
+      "test": "enhanced_estes_tracking",
+      "pro_number": "0331234568",
+      "status": "error",
+      "result": {
+        "status": "error",
+        "pro_number": "0331234568",
+        "carrier": "Estes Express",
+        "error_message": "All enhanced tracking methods failed - CPU architecture and JavaScript barriers remain",
+        "tracking_timestamp": "2025-07-10T11:08:13.265758",
+        "extracted_from": "enhanced_estes_client_all_methods_failed"
+      }
+    },
+    {
+      "test": "enhanced_estes_tracking",
+      "pro_number": "0331234569",
+      "status": "error",
+      "result": {
+        "status": "error",
+        "pro_number": "0331234569",
+        "carrier": "Estes Express",
+        "error_message": "All enhanced tracking methods failed - CPU architecture and JavaScript barriers remain",
+        "tracking_timestamp": "2025-07-10T11:08:21.334572",
+        "extracted_from": "enhanced_estes_client_all_methods_failed"
+      }
+    },
+    {
+      "test": "enhanced_fedex_tracking",
+      "pro_number": "1234567890",
+      "status": "error",
+      "result": {
+        "status": "error",
+        "pro_number": "1234567890",
+        "carrier": "FedEx Freight",
+        "error_message": "All enhanced tracking methods failed - CloudFlare protection and API changes remain barriers",
+        "tracking_timestamp": "2025-07-10T11:14:03.172616",
+        "extracted_from": "enhanced_fedex_client_all_methods_failed"
+      }
+    },
+    {
+      "test": "enhanced_fedex_tracking",
+      "pro_number": "1234567891",
+      "status": "error",
+      "result": {
+        "status": "error",
+        "pro_number": "1234567891",
+        "carrier": "FedEx Freight",
+        "error_message": "All enhanced tracking methods failed - CloudFlare protection and API changes remain barriers",
+        "tracking_timestamp": "2025-07-10T11:14:17.999496",
+        "extracted_from": "enhanced_fedex_client_all_methods_failed"
+      }
+    },
+    {
+      "test": "enhanced_fedex_tracking",
+      "pro_number": "1234567892",
+      "status": "error",
+      "result": {
+        "status": "error",
+        "pro_number": "1234567892",
+        "carrier": "FedEx Freight",
+        "error_message": "All enhanced tracking methods failed - CloudFlare protection and API changes remain barriers",
+        "tracking_timestamp": "2025-07-10T11:14:34.279283",
+        "extracted_from": "enhanced_fedex_client_all_methods_failed"
+      }
+    },
+    {
+      "test": "fallback_system",
+      "status": "success",
+      "message": "Fallback system integration tested"
+    },
+    {
+      "test": "performance_comparison",
+      "status": "success",
+      "enhanced_times": [
+        183.29406428337097
+      ],
+      "message": "Performance comparison completed"
+    }
+  ],
+  "summary": {
+    "total_tests": 9,
+    "successful_tests": 3,
+    "error_tests": 6,
+    "exception_tests": 0
+  }
+}

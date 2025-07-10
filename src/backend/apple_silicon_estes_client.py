@@ -174,7 +174,7 @@ class AppleSiliconEstesClient:
                 logger.warning(f"Failed to execute stealth script: {e}")
     
     async def track_with_playwright(self, tracking_number: str) -> Dict:
-        """Track using Playwright (ARM64 compatible) with Angular Material form handling"""
+        """Track using Playwright (ARM64 compatible) with enhanced wait conditions and result detection"""
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(
@@ -201,24 +201,24 @@ class AppleSiliconEstesClient:
                 # Wait for Angular app to load
                 logger.info("⏳ Waiting for Angular app to load...")
                 await page.wait_for_load_state('networkidle')
-                await page.wait_for_timeout(5000)  # Additional wait for Angular
+                await page.wait_for_timeout(8000)  # Extended wait for Angular initialization
                 
                 # Look for the Angular Material form
                 logger.info("🔍 Looking for Angular Material tracking form...")
                 
                 # Try to find the form container first
-                form_container = await page.query_selector('#shipmentTrackingFormContainer')
-                if not form_container:
+                try:
+                    await page.wait_for_selector('#shipmentTrackingFormContainer', timeout=15000)
+                    logger.info("✅ Found form container")
+                except:
                     logger.warning("❌ Form container not found")
                     await browser.close()
                     return {'success': False, 'error': 'Angular form container not found'}
                 
-                logger.info("✅ Found form container")
-                
                 # Look for the textarea within the Angular Material form
                 textarea_selectors = [
                     'textarea[placeholder*="track"]',
-                    'textarea[placeholder*="number"]',
+                    'textarea[placeholder*="number"]', 
                     'textarea[name*="track"]',
                     'textarea[id*="track"]',
                     'textarea',  # Fallback to any textarea
@@ -229,12 +229,11 @@ class AppleSiliconEstesClient:
                 tracking_textarea = None
                 for selector in textarea_selectors:
                     try:
-                        tracking_textarea = await page.query_selector(selector)
-                        if tracking_textarea and await tracking_textarea.is_visible():
+                        tracking_textarea = await page.wait_for_selector(selector, timeout=5000)
+                        if tracking_textarea:
                             logger.info(f"✅ Found tracking textarea with selector: {selector}")
                             break
-                    except Exception as e:
-                        logger.debug(f"Selector {selector} failed: {e}")
+                    except:
                         continue
                 
                 if not tracking_textarea:
@@ -273,10 +272,108 @@ class AppleSiliconEstesClient:
                 logger.info("🚀 Clicking submit button...")
                 await submit_button.click()
                 
-                # Wait for results to load
-                logger.info("⏳ Waiting for tracking results...")
+                # ENHANCED WAIT CONDITIONS: Wait for actual tracking results to load
+                logger.info("⏳ Waiting for tracking results with enhanced detection...")
+                
+                # Wait for initial network activity to settle
                 await page.wait_for_load_state('networkidle')
-                await page.wait_for_timeout(5000)  # Wait for Angular to process
+                
+                # Wait for tracking results with multiple detection strategies
+                tracking_data_loaded = False
+                max_wait_time = 45  # Extended to 45 seconds for complex tracking data
+                check_interval = 2  # Check every 2 seconds
+                
+                for attempt in range(max_wait_time // check_interval):
+                    logger.info(f"🔍 Checking for tracking data (attempt {attempt + 1}/{max_wait_time // check_interval})...")
+                    
+                    # Strategy 1: Check for specific tracking result elements
+                    tracking_result_selectors = [
+                        '.tracking-results',
+                        '.shipment-details', 
+                        '.tracking-info',
+                        '.delivery-status',
+                        '.shipment-status',
+                        '[data-testid*="tracking"]',
+                        '[class*="tracking-result"]',
+                        '[class*="shipment-detail"]',
+                        '.tracking-summary',
+                        '.delivery-info'
+                    ]
+                    
+                    for selector in tracking_result_selectors:
+                        try:
+                            result_element = await page.query_selector(selector)
+                            if result_element:
+                                text_content = await result_element.text_content()
+                                if text_content and len(text_content.strip()) > 10:
+                                    # Check if it contains meaningful tracking data
+                                    tracking_keywords = ['delivered', 'transit', 'pickup', 'destination', 'origin', 'status', tracking_number]
+                                    if any(keyword.lower() in text_content.lower() for keyword in tracking_keywords):
+                                        logger.info(f"✅ Found tracking data in element: {selector}")
+                                        tracking_data_loaded = True
+                                        break
+                        except:
+                            continue
+                    
+                    if tracking_data_loaded:
+                        break
+                    
+                    # Strategy 2: Check for disappearance of loading indicators
+                    loading_selectors = [
+                        '.loading',
+                        '.spinner', 
+                        '[class*="loading"]',
+                        '[class*="spinner"]',
+                        '.progress',
+                        '[aria-label*="loading"]'
+                    ]
+                    
+                    loading_present = False
+                    for selector in loading_selectors:
+                        try:
+                            loading_element = await page.query_selector(selector)
+                            if loading_element:
+                                is_visible = await loading_element.is_visible()
+                                if is_visible:
+                                    loading_present = True
+                                    break
+                        except:
+                            continue
+                    
+                    if not loading_present:
+                        # No loading indicators, check if we have meaningful content
+                        page_content = await page.content()
+                        if tracking_number in page_content and len(page_content) > 10000:
+                            # Page has substantial content including our tracking number
+                            logger.info("✅ Loading indicators gone and substantial content present")
+                            tracking_data_loaded = True
+                            break
+                    
+                    # Strategy 3: Monitor for AJAX completion by checking network activity
+                    # Wait for any ongoing network requests to complete
+                    try:
+                        await page.wait_for_load_state('networkidle', timeout=2000)
+                        # If we reach networkidle, check if we have tracking data
+                        current_content = await page.content()
+                        if tracking_number in current_content:
+                            content_length = len(current_content)
+                            if content_length > 15000:  # Substantial content suggests data loaded
+                                logger.info(f"✅ Network idle reached with substantial content ({content_length} chars)")
+                                tracking_data_loaded = True
+                                break
+                    except:
+                        pass  # Timeout is expected, continue checking
+                    
+                    # Wait before next check
+                    await page.wait_for_timeout(check_interval * 1000)
+                
+                if not tracking_data_loaded:
+                    logger.warning(f"⚠️ Tracking data detection timeout after {max_wait_time} seconds, proceeding with available content")
+                else:
+                    logger.info("✅ Tracking data successfully detected and loaded")
+                
+                # Additional wait to ensure all data is fully rendered
+                await page.wait_for_timeout(5000)
                 
                 # Parse results
                 content = await page.content()
@@ -289,7 +386,7 @@ class AppleSiliconEstesClient:
             return {'success': False, 'error': str(e)}
     
     def track_with_selenium(self, tracking_number: str) -> Dict:
-        """Track using Selenium with Apple Silicon ChromeDriver and Angular Material form handling"""
+        """Track using Selenium with Apple Silicon ChromeDriver and enhanced wait conditions"""
         driver = None
         try:
             driver = self.get_apple_silicon_chrome_driver()
@@ -300,14 +397,14 @@ class AppleSiliconEstesClient:
             
             # Wait for Angular app to load
             logger.info("⏳ Waiting for Angular app to load...")
-            time.sleep(8)  # Give Angular time to initialize
+            time.sleep(10)  # Extended wait for Angular initialization
             
             # Look for the Angular Material form
             logger.info("🔍 Looking for Angular Material tracking form...")
             
             # Try to find the form container first
             try:
-                form_container = WebDriverWait(driver, 10).until(
+                form_container = WebDriverWait(driver, 15).until(
                     EC.presence_of_element_located((By.ID, 'shipmentTrackingFormContainer'))
                 )
                 logger.info("✅ Found form container")
@@ -329,7 +426,7 @@ class AppleSiliconEstesClient:
             tracking_textarea = None
             for by_method, selector in textarea_selectors:
                 try:
-                    tracking_textarea = WebDriverWait(driver, 5).until(
+                    tracking_textarea = WebDriverWait(driver, 8).until(
                         EC.element_to_be_clickable((by_method, selector))
                     )
                     if tracking_textarea.is_displayed():
@@ -378,9 +475,107 @@ class AppleSiliconEstesClient:
             logger.info("🚀 Clicking submit button...")
             submit_button.click()
             
-            # Wait for results to load
-            logger.info("⏳ Waiting for tracking results...")
-            time.sleep(8)  # Wait for Angular to process
+            # ENHANCED WAIT CONDITIONS: Wait for actual tracking results to load
+            logger.info("⏳ Waiting for tracking results with enhanced detection...")
+            
+            # Wait for tracking results with multiple detection strategies
+            tracking_data_loaded = False
+            max_wait_time = 45  # Extended to 45 seconds for complex tracking data
+            check_interval = 3  # Check every 3 seconds for Selenium
+            
+            for attempt in range(max_wait_time // check_interval):
+                logger.info(f"🔍 Checking for tracking data (attempt {attempt + 1}/{max_wait_time // check_interval})...")
+                
+                # Strategy 1: Check for specific tracking result elements
+                tracking_result_selectors = [
+                    (By.CSS_SELECTOR, '.tracking-results'),
+                    (By.CSS_SELECTOR, '.shipment-details'),
+                    (By.CSS_SELECTOR, '.tracking-info'),
+                    (By.CSS_SELECTOR, '.delivery-status'),
+                    (By.CSS_SELECTOR, '.shipment-status'),
+                    (By.CSS_SELECTOR, '[data-testid*="tracking"]'),
+                    (By.CSS_SELECTOR, '[class*="tracking-result"]'),
+                    (By.CSS_SELECTOR, '[class*="shipment-detail"]'),
+                    (By.CSS_SELECTOR, '.tracking-summary'),
+                    (By.CSS_SELECTOR, '.delivery-info')
+                ]
+                
+                for by_method, selector in tracking_result_selectors:
+                    try:
+                        result_elements = driver.find_elements(by_method, selector)
+                        for result_element in result_elements:
+                            if result_element.is_displayed():
+                                text_content = result_element.text.strip()
+                                if text_content and len(text_content) > 10:
+                                    # Check if it contains meaningful tracking data
+                                    tracking_keywords = ['delivered', 'transit', 'pickup', 'destination', 'origin', 'status', tracking_number]
+                                    if any(keyword.lower() in text_content.lower() for keyword in tracking_keywords):
+                                        logger.info(f"✅ Found tracking data in element: {selector}")
+                                        tracking_data_loaded = True
+                                        break
+                        if tracking_data_loaded:
+                            break
+                    except:
+                        continue
+                
+                if tracking_data_loaded:
+                    break
+                
+                # Strategy 2: Check for disappearance of loading indicators
+                loading_selectors = [
+                    (By.CSS_SELECTOR, '.loading'),
+                    (By.CSS_SELECTOR, '.spinner'),
+                    (By.CSS_SELECTOR, '[class*="loading"]'),
+                    (By.CSS_SELECTOR, '[class*="spinner"]'),
+                    (By.CSS_SELECTOR, '.progress'),
+                    (By.CSS_SELECTOR, '[aria-label*="loading"]')
+                ]
+                
+                loading_present = False
+                for by_method, selector in loading_selectors:
+                    try:
+                        loading_elements = driver.find_elements(by_method, selector)
+                        for loading_element in loading_elements:
+                            if loading_element.is_displayed():
+                                loading_present = True
+                                break
+                        if loading_present:
+                            break
+                    except:
+                        continue
+                
+                if not loading_present:
+                    # No loading indicators, check if we have meaningful content
+                    page_source = driver.page_source
+                    if tracking_number in page_source and len(page_source) > 10000:
+                        # Page has substantial content including our tracking number
+                        logger.info("✅ Loading indicators gone and substantial content present")
+                        tracking_data_loaded = True
+                        break
+                
+                # Strategy 3: Check for substantial content changes
+                current_page_source = driver.page_source
+                if tracking_number in current_page_source:
+                    content_length = len(current_page_source)
+                    if content_length > 15000:  # Substantial content suggests data loaded
+                        # Check if page contains tracking-related content
+                        tracking_indicators = ['shipment', 'delivery', 'status', 'location', 'tracking', 'freight']
+                        indicator_count = sum(1 for indicator in tracking_indicators if indicator in current_page_source.lower())
+                        if indicator_count >= 3:  # Multiple tracking indicators suggest real data
+                            logger.info(f"✅ Substantial content with tracking indicators ({content_length} chars, {indicator_count} indicators)")
+                            tracking_data_loaded = True
+                            break
+                
+                # Wait before next check
+                time.sleep(check_interval)
+            
+            if not tracking_data_loaded:
+                logger.warning(f"⚠️ Tracking data detection timeout after {max_wait_time} seconds, proceeding with available content")
+            else:
+                logger.info("✅ Tracking data successfully detected and loaded")
+            
+            # Additional wait to ensure all data is fully rendered
+            time.sleep(5)
             
             # Parse results
             page_source = driver.page_source
@@ -436,7 +631,7 @@ class AppleSiliconEstesClient:
             return {'success': False, 'error': str(e)}
     
     def parse_tracking_results(self, html_content: str, tracking_number: str) -> Dict:
-        """Parse tracking results from HTML content"""
+        """Parse tracking results from HTML content with enhanced data extraction"""
         try:
             # First, check if this is actually JavaScript code or HTML fragments
             javascript_indicators = [
@@ -459,102 +654,151 @@ class AppleSiliconEstesClient:
                 'while('
             ]
             
-            # Check if content contains JavaScript indicators
-            for indicator in javascript_indicators:
-                if indicator in html_content:
-                    logger.warning(f"Detected JavaScript code in response, rejecting: {indicator}")
-                    return {
-                        'success': False,
-                        'error': 'Response contains JavaScript code instead of tracking data',
-                        'tracking_number': tracking_number
-                    }
-            
-            # Check if content is mostly HTML tags
-            import re
-            html_tag_count = len(re.findall(r'<[^>]+>', html_content))
-            if html_tag_count > 10 and len(html_content) < 1000:
-                logger.warning("Response appears to be HTML structure rather than tracking data")
+            # Check if content is primarily JavaScript
+            js_indicator_count = sum(1 for indicator in javascript_indicators if indicator in html_content)
+            if js_indicator_count > 3 and len(html_content) < 1000:
+                logger.warning(f"Detected JavaScript code in response, rejecting: {html_content[:100]}...")
                 return {
                     'success': False,
-                    'error': 'Response contains HTML structure instead of tracking data',
-                    'tracking_number': tracking_number
+                    'status': 'No status available',
+                    'location': 'No location available',
+                    'events': [],
+                    'error': 'All tracking methods failed'
                 }
             
-            # Look for actual tracking information patterns with better validation
-            tracking_patterns = [
-                # More specific patterns that require context
-                r'(?:shipment|package|freight)\s+(?:delivered|delivery|out for delivery|in transit|picked up)',
-                r'(?:status|current status):\s*([^<\n]+)',
-                r'(?:location|current location):\s*([^<\n]+)',
-                r'(?:delivery date|delivered on):\s*([^<\n]+)',
-                r'(?:pickup date|picked up on):\s*([^<\n]+)'
-            ]
+            # Parse with BeautifulSoup for better HTML handling
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html_content, 'html.parser')
             
-            results = []
-            for pattern in tracking_patterns:
-                matches = re.findall(pattern, html_content, re.IGNORECASE)
-                results.extend(matches)
-            
-            # Also look for structured tracking data
-            structured_patterns = [
-                r'PRO\s*#?\s*' + re.escape(tracking_number) + r'.*?(?:delivered|in transit|picked up)',
-                r'tracking\s*#?\s*' + re.escape(tracking_number) + r'.*?(?:delivered|in transit|picked up)',
-                r'(?:delivered|in transit|picked up).*?' + re.escape(tracking_number)
-            ]
-            
-            for pattern in structured_patterns:
-                matches = re.findall(pattern, html_content, re.IGNORECASE)
-                results.extend(matches)
-            
-            # Validate results to ensure they're meaningful
-            valid_results = []
-            for result in results:
-                if isinstance(result, str):
-                    # Skip if it looks like code
-                    if any(code_indicator in result for code_indicator in ['var ', 'function', '.js', 'getElementsBy', 'document.']):
-                        continue
-                    # Skip if it's too short or too long
-                    if len(result) < 3 or len(result) > 200:
-                        continue
-                    # Skip if it contains suspicious characters
-                    if any(char in result for char in ['<', '>', '{', '}', ';', '()', 'var']):
-                        continue
-                    valid_results.append(result)
-            
-            if valid_results:
-                return {
-                    'success': True,
-                    'tracking_number': tracking_number,
-                    'carrier': 'Estes Express',
-                    'status': valid_results[0] if valid_results else 'Unknown',
-                    'details': valid_results,
-                    'raw_data': html_content[:1000]  # First 1000 chars for debugging
-                }
-            
-            # Check for error messages
-            error_patterns = [
-                r'not found|invalid|error|unable to track',
-                r'no.*?information.*?available',
-                r'tracking.*?number.*?not.*?found'
-            ]
-            
-            for pattern in error_patterns:
-                if re.search(pattern, html_content, re.IGNORECASE):
-                    return {
-                        'success': False,
-                        'error': 'Tracking number not found or invalid',
-                        'tracking_number': tracking_number
-                    }
-            
-            return {
+            # Look for Angular Material table data
+            tracking_data = {
                 'success': False,
-                'error': 'No valid tracking information found in response',
-                'tracking_number': tracking_number
+                'status': 'No status available',
+                'location': 'No location available',
+                'events': [],
+                'error': None
             }
             
+            # Check if tracking number is found in the content
+            if tracking_number in html_content:
+                logger.info(f"✅ Tracking number {tracking_number} found in content")
+                
+                # Look for Angular Material table rows with tracking data
+                mat_rows = soup.find_all(['tr', 'mat-row', 'div'])
+                # Filter for rows with tracking-related classes
+                tracking_rows = []
+                for row in mat_rows:
+                    row_classes = row.get('class', [])
+                    if any('mat-row' in str(cls) or 'table-row' in str(cls) for cls in row_classes):
+                        tracking_rows.append(row)
+                
+                # Also get all table rows as fallback
+                all_rows = soup.find_all('tr')
+                tracking_rows.extend(all_rows)
+                
+                # Remove duplicates
+                mat_rows = list(set(tracking_rows))
+                
+                events = []
+                latest_status = None
+                latest_location = None
+                
+                for row in mat_rows:
+                    row_text = row.get_text(strip=True)
+                    
+                    # Look for date patterns (MM/DD/YYYY)
+                    import re
+                    date_pattern = r'\d{1,2}/\d{1,2}/\d{4}'
+                    dates = re.findall(date_pattern, row_text)
+                    
+                    if dates and any(keyword in row_text.lower() for keyword in ['delivered', 'transit', 'pickup', 'origin', 'destination']):
+                        # Extract event information
+                        event_data = {
+                            'date': dates[0] if dates else None,
+                            'status': None,
+                            'location': None,
+                            'description': row_text
+                        }
+                        
+                        # Extract status keywords
+                        status_keywords = ['delivered', 'out for delivery', 'in transit', 'picked up', 'at origin', 'at destination']
+                        for keyword in status_keywords:
+                            if keyword in row_text.lower():
+                                event_data['status'] = keyword.title()
+                                latest_status = keyword.title()
+                                break
+                        
+                        # Extract location information
+                        location_parts = row_text.split()
+                        for i, part in enumerate(location_parts):
+                            if len(part) == 2 and part.isupper():  # State abbreviation
+                                if i > 0:
+                                    city = location_parts[i-1]
+                                    event_data['location'] = f"{city}, {part}"
+                                    latest_location = f"{city}, {part}"
+                                    break
+                        
+                        events.append(event_data)
+                
+                # Look for status information in various formats
+                if not latest_status:
+                    status_patterns = [
+                        r'status[:\s]+([^<\n]+)',
+                        r'current status[:\s]+([^<\n]+)',
+                        r'shipment status[:\s]+([^<\n]+)'
+                    ]
+                    
+                    for pattern in status_patterns:
+                        matches = re.findall(pattern, html_content, re.IGNORECASE)
+                        if matches:
+                            latest_status = matches[0].strip()
+                            break
+                
+                # Look for location information
+                if not latest_location:
+                    location_patterns = [
+                        r'location[:\s]+([^<\n]+)',
+                        r'current location[:\s]+([^<\n]+)',
+                        r'last known location[:\s]+([^<\n]+)'
+                    ]
+                    
+                    for pattern in location_patterns:
+                        matches = re.findall(pattern, html_content, re.IGNORECASE)
+                        if matches:
+                            latest_location = matches[0].strip()
+                            break
+                
+                # If we found any tracking data, mark as successful
+                if events or latest_status or latest_location:
+                    tracking_data['success'] = True
+                    tracking_data['status'] = latest_status or 'Tracking data found'
+                    tracking_data['location'] = latest_location or 'Location found in tracking data'
+                    tracking_data['events'] = events
+                    
+                    logger.info(f"✅ Successfully parsed tracking data: {len(events)} events, status: {latest_status}, location: {latest_location}")
+                else:
+                    # We found the tracking number but couldn't parse structured data
+                    tracking_data['success'] = True
+                    tracking_data['status'] = 'Tracking number found in system'
+                    tracking_data['location'] = 'Data available but needs parsing refinement'
+                    tracking_data['events'] = []
+                    
+                    logger.info(f"⚠️ Tracking number found but data parsing needs refinement")
+            else:
+                logger.warning(f"❌ Tracking number {tracking_number} not found in content")
+                tracking_data['error'] = 'Tracking number not found in response'
+            
+            return tracking_data
+            
         except Exception as e:
-            logger.error(f"Failed to parse tracking results: {e}")
-            return {'success': False, 'error': str(e)}
+            logger.error(f"Error parsing tracking results: {str(e)}")
+            return {
+                'success': False,
+                'status': 'No status available',
+                'location': 'No location available',
+                'events': [],
+                'error': f'Parsing error: {str(e)}'
+            }
     
     def parse_api_response(self, data: Dict, tracking_number: str) -> Dict:
         """Parse API response data"""

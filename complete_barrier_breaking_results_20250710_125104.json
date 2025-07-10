@@ -1,0 +1,104 @@
+{
+  "test_summary": {
+    "total_tests": 8,
+    "total_successes": 0,
+    "overall_success_rate": 0.0,
+    "carrier_rates": {
+      "Estes Express": 0.0,
+      "R&L Carriers": 0.0,
+      "Peninsula": 0.0,
+      "FedEx Freight": 0.0
+    }
+  },
+  "detailed_results": [
+    {
+      "carrier": "Estes Express",
+      "pro": "0628143046",
+      "expected": "delivered",
+      "success": false,
+      "status": "Exception",
+      "error": "'BarrierBreakingTrackingSystem' object has no attribute 'track_shipment'",
+      "details_count": 0,
+      "duration": 0,
+      "timestamp": "2025-07-10T12:50:48.776198"
+    },
+    {
+      "carrier": "Estes Express",
+      "pro": "1234567890",
+      "expected": "not_found",
+      "success": false,
+      "status": "Exception",
+      "error": "'BarrierBreakingTrackingSystem' object has no attribute 'track_shipment'",
+      "details_count": 0,
+      "duration": 0,
+      "timestamp": "2025-07-10T12:50:50.777386"
+    },
+    {
+      "carrier": "R&L Carriers",
+      "pro": "123456789",
+      "expected": "active",
+      "success": false,
+      "status": "Exception",
+      "error": "'BarrierBreakingTrackingSystem' object has no attribute 'track_shipment'",
+      "details_count": 0,
+      "duration": 0,
+      "timestamp": "2025-07-10T12:50:52.778815"
+    },
+    {
+      "carrier": "R&L Carriers",
+      "pro": "987654321",
+      "expected": "test",
+      "success": false,
+      "status": "Exception",
+      "error": "'BarrierBreakingTrackingSystem' object has no attribute 'track_shipment'",
+      "details_count": 0,
+      "duration": 0,
+      "timestamp": "2025-07-10T12:50:54.779923"
+    },
+    {
+      "carrier": "Peninsula",
+      "pro": "TEST123",
+      "expected": "auth_required",
+      "success": false,
+      "status": "Exception",
+      "error": "'BarrierBreakingTrackingSystem' object has no attribute 'track_shipment'",
+      "details_count": 0,
+      "duration": 0,
+      "timestamp": "2025-07-10T12:50:56.781008"
+    },
+    {
+      "carrier": "Peninsula",
+      "pro": "DEMO456",
+      "expected": "auth_required",
+      "success": false,
+      "status": "Exception",
+      "error": "'BarrierBreakingTrackingSystem' object has no attribute 'track_shipment'",
+      "details_count": 0,
+      "duration": 0,
+      "timestamp": "2025-07-10T12:50:58.782254"
+    },
+    {
+      "carrier": "FedEx Freight",
+      "pro": "123456789",
+      "expected": "cloudflare_blocked",
+      "success": false,
+      "status": "Exception",
+      "error": "'BarrierBreakingTrackingSystem' object has no attribute 'track_shipment'",
+      "details_count": 0,
+      "duration": 0,
+      "timestamp": "2025-07-10T12:51:00.783506"
+    },
+    {
+      "carrier": "FedEx Freight",
+      "pro": "987654321",
+      "expected": "cloudflare_blocked",
+      "success": false,
+      "status": "Exception",
+      "error": "'BarrierBreakingTrackingSystem' object has no attribute 'track_shipment'",
+      "details_count": 0,
+      "duration": 0,
+      "timestamp": "2025-07-10T12:51:02.784960"
+    }
+  ],
+  "timestamp": "2025-07-10T12:51:04.786723"
+}
