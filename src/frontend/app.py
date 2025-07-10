@@ -2213,11 +2213,11 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
         if pro_numbers:
             st.info(f"🚛 Found {len(pro_numbers)} PRO numbers to track")
             
-            # Import enhanced tracking client with zero-cost anti-scraping
-            from src.backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
+            # Import barrier-breaking tracking system
+            from src.backend.barrier_breaking_tracking_system import BarrierBreakingTrackingSystem
             
-            # Create enhanced tracking client
-            tracking_client = EnhancedLTLTrackingClient()
+            # Create barrier-breaking tracking system
+            tracking_client = BarrierBreakingTrackingSystem()
             
             # Track PRO numbers with progress
             tracking_progress = st.progress(0)
@@ -2234,20 +2234,20 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
                         tracking_progress.progress(int((i / len(pro_numbers)) * 100))
                         tracking_status.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_info['pro_number']}")
                         
-                        # Track the PRO number using enhanced client
-                        result_dict = await tracking_client.track_shipment(pro_info['pro_number'])
+                        # Track the PRO number using barrier-breaking system
+                        result_dict = await tracking_client.track_single_shipment(pro_info['pro_number'])
                         
                         # Convert to legacy format for compatibility
                         class TrackingResult:
                             def __init__(self, result_dict):
-                                self.pro_number = result_dict.get('pro_number', '')
+                                self.pro_number = result_dict.get('tracking_number', pro_info['pro_number'])
                                 self.carrier_name = result_dict.get('carrier', 'Unknown')
-                                self.tracking_status = result_dict.get('tracking_status', 'No status available')
-                                self.tracking_location = result_dict.get('tracking_location', 'No location available')
-                                self.tracking_event = result_dict.get('tracking_event', '')
-                                self.tracking_timestamp = result_dict.get('tracking_timestamp', 'No timestamp available')
-                                self.scrape_success = result_dict.get('status') == 'success'
-                                self.error_message = result_dict.get('message', '') if not self.scrape_success else ''
+                                self.tracking_status = result_dict.get('status', 'No status available')
+                                self.tracking_location = result_dict.get('location', 'No location available')
+                                self.tracking_event = result_dict.get('event', '')
+                                self.tracking_timestamp = result_dict.get('timestamp', 'No timestamp available')
+                                self.scrape_success = result_dict.get('success', False)
+                                self.error_message = result_dict.get('error', '') if not self.scrape_success else ''
                                 self.scraped_data = result_dict
                                 # Additional attributes for load tracking
                                 self.load_id = None
@@ -2272,13 +2272,14 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
                 
                 # Show tracking summary
                 successful_tracks = sum(1 for r in tracking_results if r.scrape_success)
-                st.success(f"✅ Successfully tracked {successful_tracks}/{len(pro_numbers)} PRO numbers (Enhanced Zero-Cost System)")
+                st.success(f"✅ Successfully tracked {successful_tracks}/{len(pro_numbers)} PRO numbers (Barrier-Breaking System) 🎉")
                 
             except Exception as e:
                 st.warning(f"⚠️ Error during enhanced tracking: {str(e)}")
                 
             finally:
-                tracking_client.cleanup()
+                # Barrier-breaking system doesn't require explicit cleanup
+                pass
         
         # Step 7: Process and save results
         update_progress("Saving results", 7, "Processing results and saving to database...")

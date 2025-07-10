@@ -15,7 +15,7 @@ import json
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 
-from ..backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
+from ..backend.barrier_breaking_tracking_system import BarrierBreakingTrackingSystem
 from ..backend.carrier_detection import detect_carrier_from_pro
 
 
@@ -503,11 +503,11 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     else:
         carriers = [None] * len(pro_numbers)
     
-    # Initialize enhanced tracking client
+    # Initialize barrier-breaking tracking system
     try:
-        tracking_client = EnhancedLTLTrackingClient()
+        tracking_client = BarrierBreakingTrackingSystem()
     except Exception as e:
-        st.error(f"❌ Failed to initialize tracking client: {str(e)}")
+        st.error(f"❌ Failed to initialize barrier-breaking tracking system: {str(e)}")
         # Create failed results for all PROs
         results = []
         for pro_number in pro_numbers:
@@ -518,7 +518,7 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                 'location': 'N/A',
                 'timestamp': 'N/A',
                 'success': False,
-                'error_message': f"Tracking client initialization failed: {str(e)}"
+                'error_message': f"Barrier-breaking tracking system initialization failed: {str(e)}"
             })
         st.session_state.pro_tracking_results = results
         return
@@ -541,22 +541,24 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                 progress_bar.progress(progress)
                 status_text.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_number}")
                 
-                # Track the PRO using enhanced client
+                # Track the PRO using barrier-breaking system
                 try:
-                    result_dict = await tracking_client.track_shipment(pro_number, carrier_name)
+                    result_dict = await tracking_client.track_single_shipment(pro_number)
                     
                     # Use provided carrier name if available, otherwise use detected carrier name
                     final_carrier_name = carrier_name or result_dict.get('carrier', 'Unknown')
                     
-                    # Create result record
+                    # Create result record based on barrier-breaking system response
                     result = {
                         'pro_number': pro_number,
                         'carrier': final_carrier_name,
-                        'status': result_dict.get('tracking_status', 'No status available'),
-                        'location': result_dict.get('tracking_location', 'No location available'),
-                        'timestamp': result_dict.get('tracking_timestamp', 'No timestamp available'),
-                        'success': result_dict.get('status') == 'success',
-                        'error_message': result_dict.get('message', '') if result_dict.get('status') != 'success' else None
+                        'status': result_dict.get('status', 'No status available'),
+                        'location': result_dict.get('location', 'No location available'),
+                        'timestamp': result_dict.get('timestamp', 'No timestamp available'),
+                        'success': result_dict.get('success', False),
+                        'error_message': result_dict.get('error', '') if not result_dict.get('success') else None,
+                        'method': result_dict.get('method', 'Barrier-Breaking System'),
+                        'barrier_solved': result_dict.get('barrier_solved', '')
                     }
                     
                 except Exception as e:
@@ -584,22 +586,20 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         
         # Complete progress
         progress_bar.progress(1.0)
-        status_text.text("Tracking complete with Enhanced Zero-Cost System!")
+        status_text.text("Tracking complete with Barrier-Breaking System! 🎉")
         
         # Store results
         st.session_state.pro_tracking_results = results
         
     except Exception as e:
-        st.error(f"❌ Error during enhanced tracking: {str(e)}")
+        st.error(f"❌ Error during barrier-breaking tracking: {str(e)}")
         # Store partial results if any
         if results:
             st.session_state.pro_tracking_results = results
     
     finally:
-        try:
-            tracking_client.cleanup()
-        except:
-            pass
+        # Barrier-breaking system doesn't require explicit cleanup
+        pass
 
 
 
