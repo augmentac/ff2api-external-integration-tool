@@ -21,11 +21,23 @@ try:
     BARRIER_BREAKING_AVAILABLE = True
 except ImportError:
     BARRIER_BREAKING_AVAILABLE = False
-    # Fallback to enhanced LTL tracking client
-    try:
-        from ..backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
-    except ImportError:
-        EnhancedLTLTrackingClient = None
+    BarrierBreakingTrackingSystem = None
+
+# Always try to import enhanced system as fallback
+try:
+    from ..backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
+    ENHANCED_AVAILABLE = True
+except ImportError:
+    ENHANCED_AVAILABLE = False
+    EnhancedLTLTrackingClient = None
+
+# Legacy fallback
+try:
+    from ..backend.ltl_tracking_client import LTLTrackingClient
+    LEGACY_AVAILABLE = True
+except ImportError:
+    LEGACY_AVAILABLE = False
+    LTLTrackingClient = None
 
 from ..backend.carrier_detection import detect_carrier_from_pro
 
@@ -519,14 +531,22 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         carriers = [None] * len(pro_numbers)
     
     # Initialize tracking system with fallback
+    tracking_client = None
+    system_name = "None"
+    use_single_shipment_method = False
+    
     try:
-        if BARRIER_BREAKING_AVAILABLE:
+        if BARRIER_BREAKING_AVAILABLE and BarrierBreakingTrackingSystem is not None:
             tracking_client = BarrierBreakingTrackingSystem()
             system_name = "Barrier-Breaking System"
             use_single_shipment_method = True
-        elif EnhancedLTLTrackingClient:
+        elif ENHANCED_AVAILABLE and EnhancedLTLTrackingClient is not None:
             tracking_client = EnhancedLTLTrackingClient()
             system_name = "Enhanced Zero-Cost System"
+            use_single_shipment_method = False
+        elif LEGACY_AVAILABLE and LTLTrackingClient is not None:
+            tracking_client = LTLTrackingClient()
+            system_name = "Legacy System"
             use_single_shipment_method = False
         else:
             raise ImportError("No tracking system available")
@@ -537,23 +557,28 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         with st.expander("🔍 System Diagnostic Info", expanded=False):
             st.write(f"**System Selected:** {system_name}")
             st.write(f"**Barrier-Breaking Available:** {BARRIER_BREAKING_AVAILABLE}")
-            st.write(f"**Enhanced System Available:** {EnhancedLTLTrackingClient is not None}")
+            st.write(f"**Enhanced System Available:** {ENHANCED_AVAILABLE}")
+            st.write(f"**Legacy System Available:** {LEGACY_AVAILABLE}")
             st.write(f"**Method:** {'track_single_shipment' if use_single_shipment_method else 'track_shipment'}")
             
             # Show system capabilities
-            if BARRIER_BREAKING_AVAILABLE:
+            if BARRIER_BREAKING_AVAILABLE and tracking_client:
                 st.write("**Capabilities:**")
                 st.write("- ✅ Apple Silicon ARM64 CPU Architecture (Estes Express)")
                 st.write("- ✅ CloudFlare Protection + TLS Fingerprinting (FedEx Freight)")
                 st.write("- ✅ Browser Detection and Anti-Scraping (All Carriers)")
                 st.write("- ✅ Advanced JavaScript Execution")
                 st.write("- ✅ Multi-layer Fallback System")
-            else:
+            elif ENHANCED_AVAILABLE and tracking_client:
                 st.write("**Capabilities:**")
                 st.write("- ✅ Zero-cost anti-scraping methods")
-                st.write("- ✅ Legacy tracking fallback")
+                st.write("- ✅ Enhanced tracking fallback")
                 st.write("- ⚠️ Limited by basic dependencies")
                 st.write("- ⚠️ No advanced browser automation")
+            else:
+                st.write("**Capabilities:**")
+                st.write("- ✅ Basic tracking methods")
+                st.write("- ⚠️ Legacy system only")
         
     except Exception as e:
         st.error(f"❌ Failed to initialize tracking system: {str(e)}")
@@ -592,18 +617,24 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                 
                 # Track the PRO using appropriate system
                 try:
-                    if use_single_shipment_method:
-                        # Barrier-breaking system uses track_single_shipment
+                    result_dict = None
+                    
+                    # Use the correct method based on the tracking system
+                    if system_name == "Barrier-Breaking System" and hasattr(tracking_client, 'track_single_shipment'):
                         result_dict = await tracking_client.track_single_shipment(pro_number)
-                    else:
-                        # Enhanced system uses track_shipment with carrier
+                    elif system_name == "Enhanced Zero-Cost System" and hasattr(tracking_client, 'track_shipment'):
                         result_dict = await tracking_client.track_shipment(pro_number, carrier_name)
+                    elif hasattr(tracking_client, 'track_shipment'):
+                        # Legacy system - try with just PRO number
+                        result_dict = await tracking_client.track_shipment(pro_number)
+                    else:
+                        raise AttributeError(f"No suitable tracking method found for {system_name}")
                     
                     # Use provided carrier name if available, otherwise use detected carrier name
                     final_carrier_name = carrier_name or result_dict.get('carrier', 'Unknown')
                     
                     # Create result record based on system type
-                    if use_single_shipment_method:
+                    if system_name == "Barrier-Breaking System":
                         # Barrier-breaking system response format
                         result = {
                             'pro_number': pro_number,
@@ -617,16 +648,16 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                             'barrier_solved': result_dict.get('barrier_solved', '')
                         }
                     else:
-                        # Enhanced system response format
+                        # Enhanced/Legacy system response format
                         result = {
                             'pro_number': pro_number,
                             'carrier': final_carrier_name,
-                            'status': result_dict.get('tracking_status', 'No status available'),
-                            'location': result_dict.get('tracking_location', 'No location available'),
-                            'timestamp': result_dict.get('tracking_timestamp', 'No timestamp available'),
-                            'success': result_dict.get('status') == 'success',
-                            'error_message': result_dict.get('message', '') if result_dict.get('status') != 'success' else None,
-                            'method': 'Enhanced Zero-Cost System',
+                            'status': result_dict.get('tracking_status', result_dict.get('status', 'No status available')),
+                            'location': result_dict.get('tracking_location', result_dict.get('location', 'No location available')),
+                            'timestamp': result_dict.get('tracking_timestamp', result_dict.get('timestamp', 'No timestamp available')),
+                            'success': result_dict.get('status') == 'success' if 'status' in result_dict else result_dict.get('success', False),
+                            'error_message': result_dict.get('message', result_dict.get('error', '')) if result_dict.get('status') != 'success' else None,
+                            'method': system_name,
                             'barrier_solved': ''
                         }
                     
@@ -639,7 +670,9 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                         'location': 'N/A',
                         'timestamp': 'N/A',
                         'success': False,
-                        'error_message': str(e)
+                        'error_message': str(e),
+                        'method': system_name,
+                        'barrier_solved': ''
                     }
                 
                 results.append(result)
@@ -658,13 +691,12 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         if BARRIER_BREAKING_AVAILABLE:
             status_text.text("Tracking complete with Barrier-Breaking System! 🎉")
         else:
-            status_text.text("Tracking complete with Enhanced Zero-Cost System! ✅")
+            status_text.text(f"Tracking complete with {system_name}! ✅")
         
         # Store results
         st.session_state.pro_tracking_results = results
         
     except Exception as e:
-        system_name = "barrier-breaking" if BARRIER_BREAKING_AVAILABLE else "enhanced zero-cost"
         st.error(f"❌ Error during {system_name} tracking: {str(e)}")
         # Store partial results if any
         if results:
@@ -673,9 +705,6 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     finally:
         # Barrier-breaking system doesn't require explicit cleanup
         pass
-
-
-
 
 
 def _reset_pro_tracking_workflow():
