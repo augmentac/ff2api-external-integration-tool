@@ -1,0 +1,95 @@
+# Zero-Cost Anti-Scraping System Dependencies
+# Complete requirements for zero-cost LTL tracking with anti-scraping capabilities
+
+# Core dependencies from existing system
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+pandas>=2.0.0
+streamlit>=1.28.0
+python-dotenv>=1.0.0
+
+# Zero-cost anti-scraping dependencies
+# Note: These are optional - system will work without them but with reduced functionality
+
+# TOR integration for IP rotation (optional)
+# Install with: pip install stem PySocks
+stem>=1.8.0              # TOR control library
+PySocks>=1.7.1           # SOCKS proxy support
+
+# Computer vision for local CAPTCHA solving (optional)
+# Install with: pip install opencv-python pytesseract
+opencv-python>=4.8.0     # Computer vision library
+pytesseract>=0.3.10      # OCR engine wrapper
+Pillow>=10.0.0           # Image processing
+
+# Lightweight browser automation (optional)
+# Install with: pip install pyppeteer requests-html
+pyppeteer>=1.0.2,<2.0.0  # Lightweight Chrome automation (with urllib3 compatibility)
+requests-html>=0.10.0    # JavaScript-enabled requests
+
+# Enhanced HTTP client features
+httpx>=0.25.0            # Modern HTTP client with async support
+aiohttp>=3.8.0           # Async HTTP client
+fake-useragent>=1.4.0    # Dynamic user agent generation
+
+# Browser automation fallback (optional)
+# Install with: pip install selenium webdriver-manager
+selenium>=4.15.0         # Browser automation
+webdriver-manager>=4.0.0 # Automatic driver management
+
+# Additional utilities
+lxml>=4.9.0              # Fast XML/HTML parser
+cssselect>=1.2.0         # CSS selector support
+python-dateutil>=2.8.0   # Date parsing utilities
+urllib3>=1.25.8,<2.0.0   # HTTP library (pyppeteer compatible)
+certifi>=2023.0.0        # SSL certificates
+
+# Async support
+# asyncio is built-in to Python 3.9+, no need to install
+aiofiles>=23.0.0         # Async file operations
+
+# Data processing
+numpy>=1.24.0            # Numerical computing
+scipy>=1.10.0            # Scientific computing
+
+# Logging and monitoring
+structlog>=23.1.0        # Structured logging
+psutil>=5.9.0            # System monitoring
+
+# Security and encryption
+cryptography>=41.0.0     # Cryptographic recipes
+# hashlib is built-in to Python, no need to install
+
+# Network utilities
+dnspython>=2.4.0         # DNS toolkit
+netaddr>=0.9.0           # Network address manipulation
+
+# Optional: Machine learning for advanced CAPTCHA solving
+# Uncomment if you want ML-based CAPTCHA solving
+# tensorflow>=2.13.0      # Machine learning framework
+# keras>=2.13.0           # High-level neural networks API
+# scikit-learn>=1.3.0     # Machine learning library
+# torch>=2.0.0            # PyTorch for deep learning
+
+# Development and testing dependencies
+pytest>=7.4.0           # Testing framework
+pytest-asyncio>=0.21.0  # Async testing support
+black>=23.7.0           # Code formatting
+flake8>=6.0.0           # Code linting
+mypy>=1.5.0             # Type checking
+
+# Optional: Performance monitoring
+# Uncomment for advanced performance monitoring
+# prometheus-client>=0.17.0  # Metrics collection
+# grafana-api>=1.0.3         # Grafana integration
+
+# Installation Notes:
+# 1. Install core dependencies first: pip install -r requirements.txt
+# 2. Install zero-cost dependencies: pip install -r requirements_zero_cost.txt
+# 3. For TOR support: brew install tor (macOS) or apt-get install tor (Linux)
+# 4. For Tesseract OCR: brew install tesseract (macOS) or apt-get install tesseract-ocr (Linux)
+# 5. Chrome/Chromium will be downloaded automatically by pyppeteer
+
+# Docker Integration:
+# All dependencies are designed to work in Docker containers
+# Chrome/Chromium will be bundled in the Docker image for zero-setup deployment 

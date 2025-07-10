@@ -3359,7 +3359,7 @@ def _render_new_web_scraper_form(db_manager, brokerage_name):
                         'Web Scraper',
                         'Automated web scraping for data extraction'
                     )
-                else:
+        else:
                     web_scraper_type_id = web_scraper_type['id']
                 
                 # Prepare configuration data
@@ -3400,7 +3400,7 @@ def _render_new_web_scraper_form(db_manager, brokerage_name):
                 st.success(f"✅ Web scraper '{scraper_name}' created successfully!")
                 st.rerun()
                 
-            except Exception as e:
+    except Exception as e:
                 st.error(f"❌ Error creating web scraper: {e}")
 
 def _execute_web_scraper(db_manager, scraper):
