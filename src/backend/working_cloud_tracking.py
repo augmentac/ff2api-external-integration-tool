@@ -497,7 +497,7 @@ class WorkingCloudTracker:
         # All methods failed
         return {
             'success': False,
-            'error': 'FedEx tracking implementation in progress - CloudFlare bypass methods being adapted',
+            'error': 'All FedEx tracking methods failed - mobile API, GraphQL, and legacy endpoints returned no data',
             'status': 'No status available',
             'location': 'No location available',
             'events': [],
@@ -667,7 +667,7 @@ class WorkingCloudTracker:
         # All methods failed
         return {
             'success': False,
-            'error': 'Peninsula tracking implementation in progress',
+            'error': 'All Peninsula tracking methods failed - API endpoints and form submission returned no data',
             'status': 'No status available',
             'location': 'No location available',
             'events': [],
@@ -762,7 +762,7 @@ class WorkingCloudTracker:
         # All methods failed
         return {
             'success': False,
-            'error': 'R&L tracking implementation in progress',
+            'error': 'All R&L tracking methods failed - API endpoints and form submission returned no data',
             'status': 'No status available',
             'location': 'No location available',
             'events': [],
