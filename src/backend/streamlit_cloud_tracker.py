@@ -22,6 +22,9 @@ from bs4 import BeautifulSoup
 import json
 from fake_useragent import UserAgent
 
+# Initialize logger early to avoid NameError
+logger = logging.getLogger(__name__)
+
 # Import the new event extractor
 from .status_event_extractor import StatusEventExtractor
 
@@ -97,8 +100,6 @@ def check_dependency_availability():
     return available_deps
 
 DEPENDENCY_STATUS = check_dependency_availability()
-
-logger = logging.getLogger(__name__)
 
 class StreamlitCloudTracker:
     """
