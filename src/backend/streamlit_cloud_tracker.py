@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Streamlit Cloud Tracker
+Streamlit Cloud Tracker - Enhanced with Diagnostic Capabilities
 
 Single, focused cloud tracker for Streamlit deployment that:
 - Uses realistic success rates (30-45% overall)
-- Implements proper event extraction
-- Provides informative error messages
+- Implements proper event extraction with diagnostic capabilities
+- Provides intelligent failure analysis and recovery mechanisms
 - Removes unnecessary delegation layers
+- Includes comprehensive network diagnostics and alternative methods
 """
 
 import asyncio
@@ -23,6 +24,20 @@ from fake_useragent import UserAgent
 
 # Import the new event extractor
 from .status_event_extractor import StatusEventExtractor
+
+# Import diagnostic systems
+try:
+    from .network_diagnostics import NetworkDiagnostics
+    from .content_analysis import ContentAnalyzer
+    from .enhanced_ux import FailureAnalyzer
+    from .alternative_methods import AlternativeMethodsEngine
+    DIAGNOSTICS_AVAILABLE = True
+except ImportError:
+    DIAGNOSTICS_AVAILABLE = False
+    NetworkDiagnostics = None
+    ContentAnalyzer = None
+    FailureAnalyzer = None
+    AlternativeMethodsEngine = None
 
 logger = logging.getLogger(__name__)
 
@@ -97,9 +112,26 @@ class StreamlitCloudTracker:
         self.last_request_time = {}
         self.min_request_interval = 2.0  # 2 seconds between requests
         
+        # Initialize diagnostic systems
+        self.content_analyzer = ContentAnalyzer() if DIAGNOSTICS_AVAILABLE and ContentAnalyzer else None
+        self.failure_analyzer = FailureAnalyzer() if DIAGNOSTICS_AVAILABLE and FailureAnalyzer else None
+        
+        # Track diagnostic data
+        self.diagnostic_data = {
+            'tracking_attempts': 0,
+            'successful_tracks': 0,
+            'failed_tracks': 0,
+            'blocking_patterns': {},
+            'carrier_performance': {}
+        }
+        
         logger.info("🚀 Streamlit Cloud Tracker initialized")
         logger.info(f"📊 Expected success rates: FedEx {self.realistic_expectations['fedex']['success_rate']*100:.0f}%, Estes {self.realistic_expectations['estes']['success_rate']*100:.0f}%, Peninsula {self.realistic_expectations['peninsula']['success_rate']*100:.0f}%, R&L {self.realistic_expectations['rl']['success_rate']*100:.0f}%")
         logger.info("🎯 Cloud-native methods: Mobile endpoints, Guest forms, Legacy endpoints, Pattern scraping")
+        if DIAGNOSTICS_AVAILABLE:
+            logger.info("🔍 Diagnostic capabilities enabled")
+        else:
+            logger.warning("⚠️ Diagnostic capabilities not available")
     
     async def track_shipment(self, tracking_number: str, carrier: str) -> Dict[str, Any]:
         """
@@ -134,6 +166,11 @@ class StreamlitCloudTracker:
                     
                     if event_result.get('success'):
                         logger.info(f"✅ {method_name} successful for {carrier} - {tracking_number}")
+                        
+                        # Update diagnostic data for success
+                        self.diagnostic_data['tracking_attempts'] += 1
+                        self.diagnostic_data['successful_tracks'] += 1
+                        
                         return self.format_success_result(
                             event_result, tracking_number, carrier, method_name, start_time
                         )
@@ -144,9 +181,26 @@ class StreamlitCloudTracker:
                 logger.debug(f"❌ {method_name} error for {carrier}: {e}")
                 continue
         
-        # All methods failed - return informative failure
+        # All methods failed - analyze and return informative failure
         logger.warning(f"❌ All methods failed for {carrier} - {tracking_number}")
-        return self.create_informative_failure(tracking_number, carrier, start_time)
+        
+        # Update diagnostic data
+        self.diagnostic_data['tracking_attempts'] += 1
+        self.diagnostic_data['failed_tracks'] += 1
+        
+        # Analyze failure if diagnostics available
+        failure_result = None
+        if self.failure_analyzer:
+            try:
+                failure_result = self.failure_analyzer.analyze_failure(
+                    f"All cloud-native tracking methods failed for {carrier}",
+                    carrier,
+                    {'uniform_failure_rate': 1.0, 'cloud_environment': True}
+                )
+            except Exception as e:
+                logger.debug(f"Failure analysis error: {e}")
+        
+        return self.create_informative_failure(tracking_number, carrier, start_time, failure_result)
     
     async def apply_rate_limiting(self, carrier: str) -> None:
         """Apply rate limiting to prevent overwhelming carrier websites"""
@@ -496,11 +550,26 @@ class StreamlitCloudTracker:
             'events': [event_result] if event_result else []
         }
     
-    def create_informative_failure(self, tracking_number: str, carrier: str, start_time: float) -> Dict[str, Any]:
+    def create_informative_failure(self, tracking_number: str, carrier: str, start_time: float, failure_analysis: Any = None) -> Dict[str, Any]:
         """Create informative failure response with realistic expectations"""
         carrier_lower = carrier.lower()
         carrier_info = self.realistic_expectations.get(carrier_lower, {})
         contact_info = self.carrier_contacts.get(carrier_lower, {})
+        
+        # Enhanced failure details from diagnostic analysis
+        enhanced_details = {}
+        if failure_analysis:
+            try:
+                enhanced_details = {
+                    'failure_category': failure_analysis.failure_category.value,
+                    'root_cause': failure_analysis.root_cause,
+                    'user_explanation': failure_analysis.user_friendly_explanation,
+                    'diagnostic_recommendations': [rec.title for rec in failure_analysis.recommendations],
+                    'confidence_score': failure_analysis.confidence_score,
+                    'manual_tracking_guide': failure_analysis.manual_tracking_guide
+                }
+            except Exception as e:
+                logger.debug(f"Error extracting failure analysis: {e}")
         
         return {
             'success': False,
@@ -530,7 +599,9 @@ class StreamlitCloudTracker:
                 f"Call {contact_info.get('phone', 'carrier phone')} for status",
                 f"Use {contact_info.get('mobile_app', 'carrier mobile app')} for tracking"
             ],
-            'events': []
+            'events': [],
+            # Add enhanced diagnostic information
+            **enhanced_details
         }
     
     async def track_multiple_shipments(self, tracking_data: List[Tuple[str, str]]) -> Dict[str, Any]:
@@ -566,13 +637,16 @@ class StreamlitCloudTracker:
             
             processed_results.append(result)
             
-            carrier = result.get('carrier', 'unknown').lower()
+            # Safe access to result attributes
+            carrier = result.get('carrier', 'unknown').lower() if isinstance(result, dict) else 'unknown'
             if carrier not in carrier_stats:
                 carrier_stats[carrier] = {'total': 0, 'successful': 0, 'failed': 0}
             
             carrier_stats[carrier]['total'] += 1
             
-            if result.get('success'):
+            # Safe access to success flag
+            is_success = result.get('success', False) if isinstance(result, dict) else False
+            if is_success:
                 successful_tracks += 1
                 carrier_stats[carrier]['successful'] += 1
             else:
@@ -648,5 +722,192 @@ class StreamlitCloudTracker:
                 'enabled': True,
                 'min_interval': self.min_request_interval,
                 'purpose': 'Prevent overwhelming carrier websites'
+            },
+            'diagnostic_capabilities': {
+                'network_diagnostics': DIAGNOSTICS_AVAILABLE,
+                'content_analysis': DIAGNOSTICS_AVAILABLE,
+                'failure_analysis': DIAGNOSTICS_AVAILABLE,
+                'alternative_methods': DIAGNOSTICS_AVAILABLE
+            },
+            'diagnostic_data': self.diagnostic_data
+        }
+    
+    async def run_network_diagnostic(self, carriers: List[str] = None) -> Dict[str, Any]:
+        """Run network diagnostic for specified carriers"""
+        if not DIAGNOSTICS_AVAILABLE:
+            return {
+                'error': 'Network diagnostics not available',
+                'available': False
             }
-        } 
+        
+        try:
+            async with NetworkDiagnostics() as diagnostics:
+                if carriers is None:
+                    carriers = list(self.realistic_expectations.keys())
+                
+                results = await diagnostics.run_full_diagnostics(carriers)
+                
+                # Update diagnostic data
+                for carrier, data in results.get('carriers', {}).items():
+                    if carrier not in self.diagnostic_data['carrier_performance']:
+                        self.diagnostic_data['carrier_performance'][carrier] = {}
+                    
+                    self.diagnostic_data['carrier_performance'][carrier].update({
+                        'last_diagnostic': datetime.now(),
+                        'success_rate': data.get('success_rate', 0),
+                        'primary_blocking': data.get('primary_blocking_type')
+                    })
+                
+                return results
+        except Exception as e:
+            logger.error(f"Network diagnostic error: {e}")
+            return {
+                'error': str(e),
+                'available': False
+            }
+    
+    async def analyze_response_content(self, content: str, headers: Dict[str, str], 
+                                     carrier: str, pro_number: str) -> Dict[str, Any]:
+        """Analyze response content for blocking mechanisms"""
+        if not self.content_analyzer:
+            return {
+                'error': 'Content analysis not available',
+                'is_blocked': False,
+                'blocking_mechanism': 'unknown'
+            }
+        
+        try:
+            analysis = self.content_analyzer.analyze_content(content, headers, carrier, pro_number)
+            
+            # Update blocking patterns
+            if analysis.blocking_mechanism.value != 'none':
+                blocking_type = analysis.blocking_mechanism.value
+                if blocking_type not in self.diagnostic_data['blocking_patterns']:
+                    self.diagnostic_data['blocking_patterns'][blocking_type] = 0
+                self.diagnostic_data['blocking_patterns'][blocking_type] += 1
+            
+            return {
+                'is_blocked': analysis.is_blocked,
+                'blocking_mechanism': analysis.blocking_mechanism.value,
+                'confidence_score': analysis.confidence_score,
+                'tracking_data_found': analysis.tracking_data is not None,
+                'recommendations': analysis.recommendations,
+                'content_type': analysis.content_type.value
+            }
+        except Exception as e:
+            logger.error(f"Content analysis error: {e}")
+            return {
+                'error': str(e),
+                'is_blocked': False,
+                'blocking_mechanism': 'unknown'
+            }
+    
+    async def try_alternative_methods(self, tracking_number: str, carrier: str) -> Dict[str, Any]:
+        """Try alternative tracking methods"""
+        if not DIAGNOSTICS_AVAILABLE:
+            return {
+                'error': 'Alternative methods not available',
+                'results': []
+            }
+        
+        try:
+            async with AlternativeMethodsEngine() as engine:
+                # Use carrier's main website as base URL
+                base_urls = {
+                    'fedex': 'https://www.fedex.com',
+                    'estes': 'https://www.estes-express.com',
+                    'peninsula': 'https://www.peninsulatrucklines.com',
+                    'rl': 'https://www.rlcarriers.com'
+                }
+                
+                base_url = base_urls.get(carrier.lower(), 'https://example.com')
+                results = await engine.track_with_alternatives(tracking_number, carrier, base_url)
+                
+                return {
+                    'results': [
+                        {
+                            'method': result.method_type.value,
+                            'success': result.success,
+                            'response_time': result.response_time,
+                            'tracking_data': result.tracking_data,
+                            'error': result.error_message
+                        }
+                        for result in results
+                    ],
+                    'best_method': None if not results else max(results, key=lambda x: x.success),
+                    'success_count': sum(1 for r in results if r.success)
+                }
+        except Exception as e:
+            logger.error(f"Alternative methods error: {e}")
+            return {
+                'error': str(e),
+                'results': []
+            }
+    
+    def get_diagnostic_summary(self) -> Dict[str, Any]:
+        """Get comprehensive diagnostic summary"""
+        total_attempts = self.diagnostic_data['tracking_attempts']
+        success_rate = (
+            self.diagnostic_data['successful_tracks'] / total_attempts 
+            if total_attempts > 0 else 0
+        )
+        
+        return {
+            'system_health': {
+                'total_attempts': total_attempts,
+                'successful_tracks': self.diagnostic_data['successful_tracks'],
+                'failed_tracks': self.diagnostic_data['failed_tracks'],
+                'success_rate': success_rate,
+                'is_healthy': success_rate > 0.3  # Above 30% is considered healthy
+            },
+            'blocking_analysis': {
+                'patterns_detected': self.diagnostic_data['blocking_patterns'],
+                'most_common_block': (
+                    max(self.diagnostic_data['blocking_patterns'], 
+                        key=self.diagnostic_data['blocking_patterns'].get)
+                    if self.diagnostic_data['blocking_patterns'] else None
+                )
+            },
+            'carrier_performance': self.diagnostic_data['carrier_performance'],
+            'capabilities': {
+                'diagnostics_available': DIAGNOSTICS_AVAILABLE,
+                'content_analysis': self.content_analyzer is not None,
+                'failure_analysis': self.failure_analyzer is not None
+            },
+            'recommendations': self._generate_system_recommendations(success_rate)
+        }
+    
+    def _generate_system_recommendations(self, success_rate: float) -> List[str]:
+        """Generate system-wide recommendations based on performance"""
+        recommendations = []
+        
+        if success_rate == 0:
+            recommendations.extend([
+                "🚨 CRITICAL: Complete failure detected",
+                "🔧 Run network diagnostics to identify root cause",
+                "📞 Use manual tracking methods immediately",
+                "🌐 Consider alternative cloud providers or proxy services"
+            ])
+        elif success_rate < 0.1:
+            recommendations.extend([
+                "⚠️ SEVERE: Less than 10% success rate",
+                "🔧 Investigate IP blocking or CloudFlare protection",
+                "⏱️ Implement longer delays between requests",
+                "🔄 Try alternative methods for better results"
+            ])
+        elif success_rate < 0.3:
+            recommendations.extend([
+                "⚠️ MODERATE: Below expected 30% success rate",
+                "🔧 Optimize user agents and request patterns",
+                "📊 Analyze blocking patterns for improvement",
+                "🔄 Increase use of alternative methods"
+            ])
+        else:
+            recommendations.extend([
+                "✅ GOOD: Success rate within expected range",
+                "📊 Continue monitoring for pattern changes",
+                "🔧 Fine-tune methods for specific carriers",
+                "🔄 Maintain current approach"
+            ])
+        
+        return recommendations 

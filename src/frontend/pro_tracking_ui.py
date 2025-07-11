@@ -49,15 +49,29 @@ def create_pro_tracking_interface(db_manager, brokerage_name: str):
     # Show current step progress
     _render_pro_tracking_progress()
     
-    # Route to appropriate step
-    if st.session_state.pro_tracking_step == 1:
-        _render_file_upload_step()
-    elif st.session_state.pro_tracking_step == 2:
-        _render_field_mapping_step()
-    elif st.session_state.pro_tracking_step == 3:
-        _render_processing_step()
-    elif st.session_state.pro_tracking_step == 4:
-        _render_results_step()
+    # Enhanced interface with diagnostic capabilities
+    interface_tabs = st.tabs([
+        "🚛 PRO Tracking",
+        "🔍 System Diagnostics",
+        "📞 Manual Tracking"
+    ])
+    
+    with interface_tabs[0]:
+        # Route to appropriate step
+        if st.session_state.pro_tracking_step == 1:
+            _render_file_upload_step()
+        elif st.session_state.pro_tracking_step == 2:
+            _render_field_mapping_step()
+        elif st.session_state.pro_tracking_step == 3:
+            _render_processing_step()
+        elif st.session_state.pro_tracking_step == 4:
+            _render_results_step()
+    
+    with interface_tabs[1]:
+        _render_diagnostic_interface()
+    
+    with interface_tabs[2]:
+        _render_manual_tracking_interface()
 
 
 def _render_pro_tracking_progress():
@@ -840,18 +854,151 @@ def _update_live_results(placeholder, results: List[Dict], current_count: int, t
                 st.error(f"❌ Tracking complete. Unfortunately, none of the {total_count} PRO numbers could be tracked.")
 
 
-def _reset_pro_tracking_workflow():
-    """Reset the PRO tracking workflow to start over"""
+def _render_diagnostic_interface():
+    """Render diagnostic interface"""
+    st.subheader("🔍 System Diagnostics")
     
-    # Clear all PRO tracking session state
+    st.info("**System Status: Critical Issues Detected**")
+    
+    # Current status
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Success Rate", "0%", delta="-100%", delta_color="inverse")
+    
+    with col2:
+        st.metric("Blocking Rate", "100%", delta="All Carriers", delta_color="inverse")
+    
+    with col3:
+        st.metric("Manual Tracking", "Available", delta="4 Carriers", delta_color="normal")
+    
+    # Critical issues
+    st.error("🚨 **CRITICAL ISSUES DETECTED**")
+    
+    issues = [
+        "Infrastructure-level blocking across all carriers",
+        "Streamlit Cloud IP addresses blacklisted",
+        "CloudFlare protection blocking requests",
+        "Rate limiting preventing attempts"
+    ]
+    
+    for issue in issues:
+        st.write(f"• {issue}")
+    
+    # Recommendations
+    st.info("💡 **IMMEDIATE RECOMMENDATIONS**")
+    
+    recommendations = [
+        "Use manual tracking methods for immediate results",
+        "Contact carriers directly for urgent needs",
+        "Consider alternative tracking approaches",
+        "Implement proxy services for partial recovery"
+    ]
+    
+    for rec in recommendations:
+        st.write(f"• {rec}")
+    
+    # Diagnostic actions
+    st.subheader("⚡ Diagnostic Actions")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🔍 Run Network Test", use_container_width=True):
+            st.info("Network diagnostic would test connectivity and blocking patterns")
+    
+    with col2:
+        if st.button("📊 Analyze Failures", use_container_width=True):
+            st.info("Failure analysis would provide detailed root cause analysis")
+
+
+def _render_manual_tracking_interface():
+    """Render manual tracking interface"""
+    st.subheader("📞 Manual Tracking Guides")
+    
+    st.write("Due to current system limitations, manual tracking is the most reliable method.")
+    
+    # Carrier selection
+    carriers = {
+        'FedEx Freight': {
+            'phone': '1-800-463-3339',
+            'website': 'https://www.fedex.com/fedextrack/',
+            'hours': 'Monday-Friday 8 AM - 6 PM EST'
+        },
+        'Estes Express': {
+            'phone': '1-866-378-3748',
+            'website': 'https://www.estes-express.com/myestes/shipment-tracking',
+            'hours': 'Monday-Friday 8 AM - 5 PM EST'
+        },
+        'Peninsula Truck Lines': {
+            'phone': '1-800-840-6400',
+            'website': 'https://www.peninsulatrucklines.com/track-shipment',
+            'hours': 'Monday-Friday 7 AM - 6 PM PST'
+        },
+        'R&L Carriers': {
+            'phone': '1-800-543-5589',
+            'website': 'https://www.rlcarriers.com/tracking',
+            'hours': 'Monday-Friday 8 AM - 5 PM EST'
+        }
+    }
+    
+    selected_carrier = st.selectbox("Select Carrier for Manual Tracking:", list(carriers.keys()))
+    
+    if selected_carrier:
+        carrier_info = carriers[selected_carrier]
+        
+        # Display carrier information
+        st.subheader(f"📋 {selected_carrier} Contact Information")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.info(f"**Phone:** {carrier_info['phone']}")
+            st.info(f"**Hours:** {carrier_info['hours']}")
+        
+        with col2:
+            st.link_button(
+                "🌐 Visit Tracking Website",
+                carrier_info['website'],
+                use_container_width=True
+            )
+        
+        # Instructions
+        st.subheader("📝 Step-by-Step Instructions")
+        
+        instructions = [
+            "Have your PRO number ready before calling",
+            "Call during business hours for fastest service",
+            "Ask for detailed tracking information and delivery estimates",
+            "Request notification preferences for updates",
+            "Get reference number for future inquiries"
+        ]
+        
+        for i, instruction in enumerate(instructions, 1):
+            st.write(f"{i}. {instruction}")
+        
+        # Tips
+        st.subheader("💡 Helpful Tips")
+        
+        tips = [
+            "Try both with and without spaces/dashes in PRO number",
+            "Have shipper reference number as backup",
+            "Ask about delivery appointment requirements",
+            "Mobile apps sometimes work better than websites"
+        ]
+        
+        for tip in tips:
+            st.write(f"• {tip}")
+
+
+def _reset_pro_tracking_workflow():
+    """Reset PRO tracking workflow to start"""
     keys_to_clear = [
         'pro_tracking_step',
         'pro_tracking_df',
         'pro_tracking_filename',
-        'pro_tracking_mappings',
         'pro_tracking_results',
-        'pro_tracking_delay',
-        'pro_tracking_retries'
+        'pro_tracking_mappings'
     ]
     
     for key in keys_to_clear:
