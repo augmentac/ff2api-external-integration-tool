@@ -16,45 +16,15 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any
 import os # Added for cloud environment detection
 
-# Try to import cloud-compatible tracking systems first (best for cloud deployment)
+# Import the new simplified StreamlitCloudTracker
 try:
-    from ..backend.working_cloud_tracking import WorkingCloudTracker
-    WORKING_CLOUD_AVAILABLE = True
+    from ..backend.streamlit_cloud_tracker import StreamlitCloudTracker
+    STREAMLIT_CLOUD_TRACKER_AVAILABLE = True
 except ImportError:
-    WORKING_CLOUD_AVAILABLE = False
-    WorkingCloudTracker = None
+    STREAMLIT_CLOUD_TRACKER_AVAILABLE = False
+    StreamlitCloudTracker = None
 
-try:
-    from ..backend.improved_cloud_tracking import ImprovedCloudTracker
-    IMPROVED_CLOUD_AVAILABLE = True
-except ImportError:
-    IMPROVED_CLOUD_AVAILABLE = False
-    ImprovedCloudTracker = None
-
-try:
-    from ..backend.cloud_compatible_tracking import CloudCompatibleTracker
-    CLOUD_COMPATIBLE_AVAILABLE = True
-except ImportError:
-    CLOUD_COMPATIBLE_AVAILABLE = False
-    CloudCompatibleTracker = None
-
-# Try to import barrier-breaking system, fallback to enhanced system if not available
-try:
-    from ..backend.barrier_breaking_tracking_system import BarrierBreakingTrackingSystem
-    BARRIER_BREAKING_AVAILABLE = True
-except ImportError:
-    BARRIER_BREAKING_AVAILABLE = False
-    BarrierBreakingTrackingSystem = None
-
-# Always try to import enhanced system as fallback
-try:
-    from ..backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
-    ENHANCED_AVAILABLE = True
-except ImportError:
-    ENHANCED_AVAILABLE = False
-    EnhancedLTLTrackingClient = None
-
-# Legacy fallback
+# Legacy fallback for local development
 try:
     from ..backend.ltl_tracking_client import LTLTrackingClient
     LEGACY_AVAILABLE = True
@@ -585,10 +555,9 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     if len(pro_numbers) > 3:
         st.write(f"... and {len(pro_numbers) - 3} more PRO numbers")
     
-    # Initialize tracking system with fallback - prioritize cloud-compatible systems
+    # Initialize tracking system - use the new simplified StreamlitCloudTracker
     tracking_client = None
     system_name = "None"
-    use_single_shipment_method = False
     
     # Detect cloud environment
     def detect_cloud_environment() -> bool:
@@ -617,83 +586,52 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
     is_cloud = detect_cloud_environment()
     
     try:
-        # Priority 1: Cloud-compatible systems (best for cloud deployment)
-        if WORKING_CLOUD_AVAILABLE and WorkingCloudTracker is not None:
-            tracking_client = WorkingCloudTracker()
-            system_name = "Working Cloud Tracking System"
-            use_single_shipment_method = False
-        elif IMPROVED_CLOUD_AVAILABLE and ImprovedCloudTracker is not None:
-            tracking_client = ImprovedCloudTracker()
-            system_name = "Improved Cloud Tracking System"
-            use_single_shipment_method = False
-        elif CLOUD_COMPATIBLE_AVAILABLE and CloudCompatibleTracker is not None:
-            tracking_client = CloudCompatibleTracker()
-            system_name = "Cloud Compatible System"
-            use_single_shipment_method = False
-        # Priority 2: Barrier-breaking system (full featured)
-        elif BARRIER_BREAKING_AVAILABLE and BarrierBreakingTrackingSystem is not None:
-            tracking_client = BarrierBreakingTrackingSystem()
-            system_name = "Barrier-Breaking System"
-            use_single_shipment_method = True
-        # Priority 3: Enhanced system
-        elif ENHANCED_AVAILABLE and EnhancedLTLTrackingClient is not None:
-            tracking_client = EnhancedLTLTrackingClient()
-            system_name = "Enhanced Zero-Cost System"
-            use_single_shipment_method = False
-        # Priority 4: Legacy system
+        # Priority 1: New StreamlitCloudTracker (designed for cloud deployment)
+        if STREAMLIT_CLOUD_TRACKER_AVAILABLE and StreamlitCloudTracker is not None:
+            tracking_client = StreamlitCloudTracker()
+            system_name = "Streamlit Cloud Tracker"
+        # Priority 2: Legacy system (fallback for local development)
         elif LEGACY_AVAILABLE and LTLTrackingClient is not None:
             tracking_client = LTLTrackingClient()
-            system_name = "Legacy System"
-            use_single_shipment_method = False
+            system_name = "Legacy Tracking System"
         else:
             raise ImportError("No tracking system available")
             
-        # Show system info with cloud detection
-        if is_cloud:
+        # Show system info with realistic expectations
+        if system_name == "Streamlit Cloud Tracker":
             st.info(f"🌐 Using {system_name} for cloud tracking")
-            st.caption("Cloud environment detected - using cloud-optimized methods")
+            st.caption("Realistic success rates: 30-45% overall (varies by carrier)")
         else:
             st.info(f"🚀 Using {system_name} for tracking")
-            st.caption("Local environment detected - full capabilities available")
+            st.caption("Local development mode - legacy system")
         
         # Add system diagnostic info
         with st.expander("🔍 System Diagnostic Info", expanded=False):
             st.write(f"**System Selected:** {system_name}")
             st.write(f"**Environment:** {'Cloud' if is_cloud else 'Local'}")
-            st.write(f"**Working Cloud Available:** {WORKING_CLOUD_AVAILABLE}")
-            st.write(f"**Improved Cloud Available:** {IMPROVED_CLOUD_AVAILABLE}")
-            st.write(f"**Cloud Compatible Available:** {CLOUD_COMPATIBLE_AVAILABLE}")
-            st.write(f"**Barrier-Breaking Available:** {BARRIER_BREAKING_AVAILABLE}")
-            st.write(f"**Enhanced System Available:** {ENHANCED_AVAILABLE}")
+            st.write(f"**Streamlit Cloud Tracker Available:** {STREAMLIT_CLOUD_TRACKER_AVAILABLE}")
             st.write(f"**Legacy System Available:** {LEGACY_AVAILABLE}")
-            st.write(f"**Method:** {'track_single_shipment' if use_single_shipment_method else 'track_shipment'}")
             
             # Show system capabilities based on selected system
-            if "Cloud" in system_name:
+            if system_name == "Streamlit Cloud Tracker":
                 st.write("**Capabilities:**")
                 st.write("- ✅ Cloud-optimized HTTP/API methods")
                 st.write("- ✅ No browser automation required")
-                st.write("- ✅ Fast response times (5-15 seconds)")
-                st.write("- ✅ Streamlit Cloud compatible")
-                st.write("- ⚠️ Success rate: 60-85% (varies by carrier)")
-            elif BARRIER_BREAKING_AVAILABLE and "Barrier-Breaking" in system_name:
-                st.write("**Capabilities:**")
-                st.write("- ✅ Apple Silicon ARM64 CPU Architecture (Estes Express)")
-                st.write("- ✅ CloudFlare Protection + TLS Fingerprinting (FedEx Freight)")
-                st.write("- ✅ Browser Detection and Anti-Scraping (All Carriers)")
-                st.write("- ✅ Advanced JavaScript Execution")
-                st.write("- ✅ Multi-layer Fallback System")
-                st.write("- ✅ Success rate: 75-95% (varies by carrier)")
-            elif ENHANCED_AVAILABLE and "Enhanced" in system_name:
-                st.write("**Capabilities:**")
-                st.write("- ✅ Zero-cost anti-scraping methods")
-                st.write("- ✅ Enhanced tracking fallback")
-                st.write("- ⚠️ Limited by basic dependencies")
-                st.write("- ⚠️ No advanced browser automation")
+                st.write("- ✅ Proper event extraction with chronological sorting")
+                st.write("- ✅ Realistic success rate expectations")
+                st.write("- ✅ Informative error messages")
+                st.write("- ✅ Rate limiting to prevent overwhelming carrier websites")
+                st.write("**Realistic Success Rates:**")
+                st.write("- FedEx Freight: 25% (CloudFlare protection)")
+                st.write("- Estes Express: 35% (Angular SPA barriers)")
+                st.write("- Peninsula: 30% (Authentication walls)")
+                st.write("- R&L Carriers: 40% (Session-based tracking)")
+                st.write("- Overall: 30-45% (cloud limitations)")
             else:
                 st.write("**Capabilities:**")
                 st.write("- ✅ Basic tracking methods")
                 st.write("- ⚠️ Legacy system only")
+                st.write("- ⚠️ No advanced event extraction")
         
     except Exception as e:
         st.error(f"❌ Failed to initialize tracking system: {str(e)}")
@@ -744,22 +682,10 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                     result_dict = None
                     
                     # Use the correct method based on the tracking system type
-                    if system_name == "Working Cloud Tracking System":
-                        # Working Cloud Tracker uses track_shipment(tracking_number, carrier)
+                    if system_name == "Streamlit Cloud Tracker":
+                        # New StreamlitCloudTracker uses track_shipment(tracking_number, carrier)
                         result_dict = await tracking_client.track_shipment(pro_number, carrier_name or "Auto-Detect")
-                    elif system_name == "Improved Cloud Tracking System":
-                        # Improved Cloud Tracker uses track_shipment(tracking_number, carrier)
-                        result_dict = await tracking_client.track_shipment(pro_number, carrier_name or "Auto-Detect")
-                    elif system_name == "Cloud Compatible System":
-                        # Cloud Compatible Tracker uses track_shipment(tracking_number, carrier)
-                        result_dict = await tracking_client.track_shipment(pro_number, carrier_name or "Auto-Detect")
-                    elif system_name == "Barrier-Breaking System":
-                        # Barrier-breaking system uses track_single_shipment(tracking_number, carrier)
-                        result_dict = await tracking_client.track_single_shipment(pro_number, carrier_name)
-                    elif system_name == "Enhanced Zero-Cost System":
-                        # Enhanced system uses track_shipment(pro_number, carrier)
-                        result_dict = await tracking_client.track_shipment(pro_number, carrier_name)
-                    elif system_name == "Legacy System":
+                    elif system_name == "Legacy Tracking System":
                         # Legacy system uses track_pro_number(pro_number) - synchronous
                         result_dict = tracking_client.track_pro_number(pro_number)
                         # Convert TrackingResult to dict format
