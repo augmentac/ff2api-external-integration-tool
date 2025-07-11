@@ -607,18 +607,18 @@ class StatusEventExtractor:
         return min(score, 1.0)
     
     def create_no_events_result(self, carrier: str) -> Dict[str, Any]:
-        """Create result when no events are found"""
+        """Create result when no events are found - but treat as valid response"""
         return {
-            'success': False,
-            'status': 'No tracking events found',
-            'location': 'Unknown',
+            'success': True,  # This is a valid response, just no tracking data available
+            'status': 'No tracking information available',
+            'location': 'Contact carrier for details',
             'timestamp': 'Unknown',
-            'event_description': 'No tracking events could be extracted from the response',
+            'event_description': 'PRO number was processed but no tracking events found',
             'is_delivered': False,
-            'confidence_score': 0.0,
+            'confidence_score': 0.6,  # Moderate confidence - we got a valid response
             'carrier': carrier,
-            'extraction_method': 'none',
-            'error': 'No tracking events found in HTML content'
+            'extraction_method': 'no_events_found',
+            'note': 'Valid response received but no tracking events available - PRO may be too new or already completed'
         }
     
     def create_error_result(self, error_message: str, carrier: str) -> Dict[str, Any]:

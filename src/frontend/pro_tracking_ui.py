@@ -776,10 +776,7 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
         
         # Complete progress
         progress_bar.progress(1.0)
-        if BARRIER_BREAKING_AVAILABLE:
-            status_text.text("Tracking complete with Barrier-Breaking System! 🎉")
-        else:
-            status_text.text(f"Tracking complete with {system_name}! ✅")
+        status_text.text(f"Tracking complete with {system_name}! ✅")
         
         # Store results
         st.session_state.pro_tracking_results = results

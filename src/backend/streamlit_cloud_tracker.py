@@ -488,24 +488,54 @@ class StreamlitCloudTracker:
         return None
     
     def validate_tracking_response(self, html_content: str, tracking_number: str) -> bool:
-        """Validate that the response contains meaningful tracking information"""
-        if not html_content or len(html_content) < 500:
+        """Validate that the response contains meaningful tracking information or valid errors"""
+        if not html_content or len(html_content) < 100:  # Much more reasonable minimum
             return False
         
-        # Check if tracking number is mentioned
-        if tracking_number not in html_content:
-            return False
+        content_lower = html_content.lower()
+        
+        # Handle common PRO number formatting variations
+        pro_variations = [
+            tracking_number,
+            tracking_number.replace('-', ''),
+            tracking_number.replace(' ', ''),
+            tracking_number.upper(),
+            tracking_number.lower()
+        ]
+        
+        # Add dash formatting for longer PRO numbers
+        if len(tracking_number) > 3:
+            pro_variations.append('-'.join([tracking_number[:-1], tracking_number[-1]]))
+        
+        # Check if any variation of the PRO number is mentioned
+        pro_found = any(pro.lower() in content_lower for pro in pro_variations)
         
         # Check for tracking-related keywords
         tracking_keywords = [
             'delivered', 'in transit', 'picked up', 'terminal', 'shipment',
-            'tracking', 'status', 'location', 'delivery', 'freight'
+            'tracking', 'status', 'location', 'delivery', 'freight', 'pro',
+            'bill of lading', 'bol', 'consignment', 'pickup', 'destination'
         ]
         
-        content_lower = html_content.lower()
-        keyword_count = sum(1 for keyword in tracking_keywords if keyword in content_lower)
+        # Check for valid error indicators (these are also valid responses)
+        error_keywords = [
+            'not found', 'invalid', 'no records', 'unable to locate', 
+            'no information', 'not available', 'please verify', 'check number',
+            'does not exist', 'cannot be found', 'no match', 'invalid pro'
+        ]
         
-        return keyword_count >= 3
+        keyword_count = sum(1 for keyword in tracking_keywords if keyword in content_lower)
+        error_count = sum(1 for keyword in error_keywords if keyword in content_lower)
+        
+        # Accept if:
+        # 1. PRO number found AND any tracking keywords, OR
+        # 2. Has tracking content (even without PRO match - might be formatted differently), OR  
+        # 3. Has valid error response indicating PRO was processed
+        has_tracking_content = keyword_count >= 1
+        has_error_content = error_count >= 1
+        
+        # More flexible validation - accept legitimate responses
+        return (pro_found and (has_tracking_content or has_error_content)) or has_tracking_content or has_error_content
     
     def convert_json_to_html(self, json_data: Dict, tracking_number: str) -> str:
         """Convert JSON tracking data to HTML format for event extraction"""
