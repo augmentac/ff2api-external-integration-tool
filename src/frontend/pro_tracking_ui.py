@@ -723,7 +723,7 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                     
                     # Create result record based on system type
                     if system_name in ["Working Cloud Tracking System", "Improved Cloud Tracking System", "Cloud Compatible System", "Barrier-Breaking System"]:
-                        # Modern systems use consistent response format
+                        # Modern systems use consistent response format with cloud-native details
                         result = {
                             'pro_number': pro_number,
                             'carrier': final_carrier_name,
@@ -732,11 +732,16 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                             'timestamp': result_dict.get('timestamp', 'No timestamp available'),
                             'success': result_dict.get('success', False),
                             'error_message': result_dict.get('error', '') if not result_dict.get('success') else None,
-                            'method': result_dict.get('method', system_name),
-                            'barrier_solved': result_dict.get('barrier_solved', '')
+                            'method': result_dict.get('extracted_from', result_dict.get('method', system_name)),
+                            'barrier_solved': result_dict.get('barrier_solved', ''),
+                            # Preserve cloud-native details
+                            'explanation': result_dict.get('explanation', ''),
+                            'next_steps': result_dict.get('next_steps', ''),
+                            'methods_attempted': result_dict.get('methods_attempted', []),
+                            'processing_time': result_dict.get('processing_time', 0)
                         }
                     else:
-                        # Enhanced/Legacy system response format
+                        # Enhanced/Legacy system response format with cloud-native details preservation
                         result = {
                             'pro_number': pro_number,
                             'carrier': final_carrier_name,
@@ -745,8 +750,13 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                             'timestamp': result_dict.get('tracking_timestamp', result_dict.get('timestamp', 'No timestamp available')),
                             'success': result_dict.get('status') == 'success' if 'status' in result_dict else result_dict.get('success', False),
                             'error_message': result_dict.get('message', result_dict.get('error', '')) if result_dict.get('status') != 'success' else None,
-                            'method': system_name,
-                            'barrier_solved': ''
+                            'method': result_dict.get('extracted_from', result_dict.get('method', system_name)),
+                            'barrier_solved': '',
+                            # Preserve cloud-native details
+                            'explanation': result_dict.get('explanation', ''),
+                            'next_steps': result_dict.get('next_steps', ''),
+                            'methods_attempted': result_dict.get('methods_attempted', []),
+                            'processing_time': result_dict.get('processing_time', 0)
                         }
                     
                 except Exception as e:

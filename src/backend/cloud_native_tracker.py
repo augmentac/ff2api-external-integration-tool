@@ -199,9 +199,9 @@ class CloudNativeTracker:
                 'https://www.peninsulatrucklines.com/shipment-tracking?pro={}'
             ],
             'rl': [
+                'https://www.rlcarriers.com',  # Main page with tracking form
                 'https://www.rlcarriers.com/Track?pro={}',
-                'https://www.rlcarriers.com/tracking?pro={}',
-                'https://www.rlcarriers.com/shipment-tracking?pro={}'
+                'https://www.rlcarriers.com/tracking?pro={}'
             ]
         }
         
@@ -377,11 +377,10 @@ class CloudNativeTracker:
                 }
             },
             'rl': {
-                'url': 'https://www.rlcarriers.com/tracking',
+                'url': 'https://www.rlcarriers.com',
                 'method': 'POST',
                 'data': {
-                    'pro': tracking_number,
-                    'submit': 'Track'
+                    'ctl00$cphBody$ToolsMenu$txtPro': tracking_number
                 }
             }
         }
@@ -398,7 +397,7 @@ class CloudNativeTracker:
             # Add realistic delay
             await asyncio.sleep(random.uniform(2, 4))
             
-            # First get the form page to extract any CSRF tokens
+            # First get the form page to extract any CSRF tokens and hidden fields
             async with session.get(config['url']) as response:
                 self.logger.info(f"📊 Form page response: {response.status} for {config['url']}")
                 
@@ -414,6 +413,16 @@ class CloudNativeTracker:
                         if csrf_name and csrf_value:
                             config['data'][csrf_name] = csrf_value
                             self.logger.debug(f"🔐 Found CSRF token: {csrf_name}")
+                    
+                    # For ASP.NET forms (like R&L Carriers), get all hidden fields
+                    if carrier == 'rl':
+                        hidden_inputs = soup.find_all('input', {'type': 'hidden'})
+                        for hidden_input in hidden_inputs:
+                            hidden_name = hidden_input.get('name')
+                            hidden_value = hidden_input.get('value', '')
+                            if hidden_name:
+                                config['data'][hidden_name] = hidden_value
+                                self.logger.debug(f"🔐 Found ASP.NET hidden field: {hidden_name}")
                 else:
                     self.logger.warning(f"⚠️ Form page failed with status {response.status}")
             
