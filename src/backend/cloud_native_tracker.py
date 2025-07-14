@@ -19,6 +19,8 @@ from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 import urllib.parse
 import ssl
+from .advanced_anti_bot_bypass import AdvancedAntiBot
+from .alternative_data_sources import AlternativeDataSources
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +182,9 @@ class CloudNativeTracker:
         self.session_manager = CloudNativeSessionManager()
         self.fingerprinter = CloudNativeFingerprinter()
         self.logger = logging.getLogger(__name__)
-        self.version = "2.0.4"  # Version identifier for deployment tracking - Specific PRO Accuracy
+        self.version = "2.0.7"  # Version identifier for deployment tracking - Comprehensive Solutions
+        self.anti_bot = AdvancedAntiBot()  # Advanced anti-bot bypass system
+        self.alternative_sources = AlternativeDataSources()  # Alternative data sources
         
         # Tracking endpoints optimized for HTTP requests
         self.tracking_endpoints = {
@@ -252,6 +256,12 @@ class CloudNativeTracker:
             # Get session for this carrier
             session = await self.session_manager.get_session(carrier_lower)
             
+            # Try advanced anti-bot bypass methods first
+            result = await self._try_advanced_anti_bot_bypass(session, tracking_number, carrier_lower)
+            if result and result.get('status') == 'success':
+                self._record_success(carrier_lower)
+                return result
+            
             # Try different tracking methods
             result = await self._try_direct_endpoints(session, tracking_number, carrier_lower)
             if result and result.get('status') == 'success':
@@ -264,6 +274,12 @@ class CloudNativeTracker:
                 return result
             
             result = await self._try_api_endpoints(session, tracking_number, carrier_lower)
+            if result and result.get('status') == 'success':
+                self._record_success(carrier_lower)
+                return result
+            
+            # Try alternative data sources
+            result = await self._try_alternative_data_sources(session, tracking_number, carrier_lower)
             if result and result.get('status') == 'success':
                 self._record_success(carrier_lower)
                 return result
@@ -396,6 +412,100 @@ class CloudNativeTracker:
                 continue
         
         self.logger.info(f"❌ All direct endpoints failed for {carrier}")
+        return None
+    
+    async def _try_advanced_anti_bot_bypass(self, session: aiohttp.ClientSession, tracking_number: str, carrier: str) -> Optional[Dict[str, Any]]:
+        """Try advanced anti-bot bypass techniques"""
+        
+        # Get carrier-specific URLs
+        carrier_urls = {
+            'fedex': [
+                'https://www.fedex.com/apps/fedextrack/',
+                'https://www.fedex.com/fedextrack/',
+                'https://www.fedex.com/tracking'
+            ],
+            'estes': [
+                'https://www.estes-express.com/shipment-tracking',
+                'https://www.estes-express.com/myestes/shipment-tracking',
+                'https://www.estes-express.com/tracking'
+            ],
+            'peninsula': [
+                'https://www.peninsulatrucklines.com/tracking',
+                'https://www.peninsulatrucklines.com/track',
+                'https://www.peninsulatrucklines.com'
+            ],
+            'rl': [
+                'https://www.rlcarriers.com/shipment-tracking',
+                'https://www.rlcarriers.com/track',
+                'https://www.rlcarriers.com'
+            ]
+        }
+        
+        urls = carrier_urls.get(carrier, [])
+        
+        for url in urls:
+            try:
+                self.logger.info(f"🔥 Trying advanced anti-bot bypass for {url}")
+                
+                # Use advanced anti-bot bypass
+                tracking_data = await self.anti_bot.extract_tracking_data_advanced(session, url, tracking_number, carrier)
+                
+                if tracking_data:
+                    self.logger.info(f"✅ Advanced anti-bot bypass successful: {url}")
+                    
+                    # Format the result
+                    return {
+                        'status': 'success',
+                        'tracking_number': tracking_number,
+                        'carrier': carrier,
+                        'tracking_status': tracking_data.get('status', 'Information Found'),
+                        'tracking_event': tracking_data.get('event', 'Tracking information retrieved'),
+                        'tracking_location': tracking_data.get('location', 'See details'),
+                        'tracking_timestamp': tracking_data.get('timestamp', datetime.now().isoformat()),
+                        'extracted_from': f'advanced_anti_bot_bypass_v{self.version}'
+                    }
+                else:
+                    self.logger.debug(f"❌ Advanced anti-bot bypass failed: {url}")
+                    
+            except asyncio.TimeoutError:
+                self.logger.warning(f"⏱️ Advanced anti-bot bypass timeout: {url}")
+                continue
+            except Exception as e:
+                self.logger.error(f"❌ Advanced anti-bot bypass error: {e}")
+                continue
+        
+        self.logger.info(f"❌ All advanced anti-bot bypass methods failed for {carrier}")
+        return None
+    
+    async def _try_alternative_data_sources(self, session: aiohttp.ClientSession, tracking_number: str, carrier: str) -> Optional[Dict[str, Any]]:
+        """Try alternative data sources for tracking information"""
+        
+        try:
+            self.logger.info(f"🔄 Trying alternative data sources for {carrier} - {tracking_number}")
+            
+            # Use comprehensive alternative data sources
+            tracking_data = await self.alternative_sources.get_tracking_comprehensive(session, tracking_number, carrier)
+            
+            if tracking_data:
+                self.logger.info(f"✅ Alternative data sources successful for {carrier} - {tracking_number}")
+                
+                # Format the result
+                return {
+                    'status': 'success',
+                    'tracking_number': tracking_number,
+                    'carrier': carrier,
+                    'tracking_status': tracking_data.get('status', 'Information Found'),
+                    'tracking_event': tracking_data.get('event', 'Tracking information retrieved'),
+                    'tracking_location': tracking_data.get('location', 'See details'),
+                    'tracking_timestamp': tracking_data.get('timestamp', datetime.now().isoformat()),
+                    'extracted_from': f'alternative_data_sources_v{self.version}'
+                }
+            else:
+                self.logger.debug(f"❌ Alternative data sources failed for {carrier} - {tracking_number}")
+                
+        except Exception as e:
+            self.logger.error(f"❌ Alternative data sources error: {e}")
+        
         return None
     
     async def _try_form_submission(self, session: aiohttp.ClientSession, tracking_number: str, carrier: str) -> Optional[Dict[str, Any]]:
