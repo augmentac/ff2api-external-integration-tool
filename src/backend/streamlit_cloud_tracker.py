@@ -1489,6 +1489,14 @@ class StreamlitCloudTracker:
         self.event_extractor = StatusEventExtractor()
         self.user_agent = UserAgent()
         
+        # Initialize cloud-native tracker
+        try:
+            self.cloud_tracker = CloudNativeTracker()
+            self.cloud_native_available = True
+        except Exception as e:
+            self.cloud_tracker = None
+            self.cloud_native_available = False
+        
         # Initialize simplified enhancements
         self.simplified_enhancements_available = self._check_simplified_enhancements()
         
@@ -1871,7 +1879,7 @@ class StreamlitCloudTracker:
     
     async def track_shipment(self, tracking_number: str, carrier: str) -> Dict[str, Any]:
         """
-        Main tracking method that uses simplified enhancements for 15-25% success rate
+        Main tracking method that uses cloud-native tracking for improved success rates
         
         Args:
             tracking_number: PRO number to track
@@ -1885,6 +1893,40 @@ class StreamlitCloudTracker:
         
         logger.info(f"🌐 Enhanced Cloud tracking: {carrier} - {tracking_number}")
         
+        # Try cloud-native tracker first if available
+        if self.cloud_native_available:
+            try:
+                result = await self.cloud_tracker.track_shipment(tracking_number, carrier)
+                
+                if result.get('status') == 'success':
+                    logger.info(f"✅ Cloud-native tracking successful for {carrier} - {tracking_number}")
+                    
+                    # Format result for compatibility
+                    processing_time = time.time() - start_time
+                    return {
+                        'success': True,
+                        'tracking_number': tracking_number,
+                        'carrier': carrier,
+                        'status': result.get('tracking_status', 'Information Found'),
+                        'location': result.get('tracking_location', 'See details'),
+                        'timestamp': result.get('tracking_timestamp', datetime.now().isoformat()),
+                        'event_description': result.get('tracking_event', 'Tracking information retrieved'),
+                        'is_delivered': 'delivered' in result.get('tracking_status', '').lower(),
+                        'confidence_score': 0.8,
+                        'processing_time': processing_time,
+                        'method': 'cloud_native_http',
+                        'enhancement_level': 'Cloud-Native HTTP Tracking'
+                    }
+                else:
+                    logger.debug(f"❌ Cloud-native tracking failed for {carrier} - {tracking_number}")
+                    
+                    # Return cloud-native error format instead of old format
+                    return result
+                    
+            except Exception as e:
+                logger.error(f"❌ Cloud-native tracking error for {carrier} - {tracking_number}: {e}")
+        
+        # Fallback to legacy methods if cloud-native fails
         # Apply rate limiting first
         await self.apply_rate_limiting(carrier_lower)
         
