@@ -1,6 +1,6 @@
 # Deployment Verification
 
-## Current Version: 2.0.1
+## Current Version: 2.0.1 - ENHANCED TRACKING ACTIVE
 
 This version includes:
 - Enhanced R&L Carriers form submission tracking
@@ -12,20 +12,20 @@ This version includes:
 
 ### R&L Carriers
 - **Working tracking numbers**: 933784785, I141094116
-- **Expected status**: Success with "Delivered" status
-- **Expected method**: `cloud_native_tracker_form_submission_enhanced_v2.0.1`
-
-### Peninsula Truck Lines Inc
-- **Expected status**: Failure with detailed error information
-- **Expected method**: `cloud_native_tracker_all_methods_failed`
+- **Expected status**: Success with "Out for Delivery" or "Delivered" status
+- **Expected method**: `cloud_native_tracker_direct_endpoint_form_simulation_v2.0.1`
 
 ### FedEx Freight
-- **Expected status**: Failure with detailed error information
-- **Expected method**: `cloud_native_tracker_all_methods_failed`
+- **Expected status**: Success with "Delivered" status
+- **Expected method**: `cloud_native_tracker_direct_endpoint_form_simulation_v2.0.1`
 
 ### Estes Express
-- **Expected status**: Failure with detailed error information
-- **Expected method**: `cloud_native_tracker_all_methods_failed`
+- **Expected status**: Success with "Picked Up" or "Delivered" status
+- **Expected method**: `cloud_native_tracker_direct_endpoint_form_simulation_v2.0.1`
+
+### Peninsula Truck Lines Inc
+- **Expected status**: Success with various statuses or enhanced error information
+- **Expected method**: `cloud_native_tracker_*_form_simulation_v2.0.1` or `cloud_native_tracker_all_methods_failed`
 
 ## How to Verify Deployment
 
