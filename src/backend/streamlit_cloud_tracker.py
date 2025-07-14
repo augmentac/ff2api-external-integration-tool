@@ -630,8 +630,8 @@ class EnhancedStreamlitCloudTracker:
                     'timestamp': result.get('tracking_timestamp', datetime.now().isoformat()),
                     'events': [result.get('tracking_event', 'Tracking information retrieved')],
                     'processing_time': processing_time,
-                    'method': 'cloud_native_http',
-                    'enhancement_level': 'Cloud-Native HTTP Tracking',
+                    'method': result.get('extracted_from', 'cloud_native_tracker'),
+                    'enhancement_level': 'Enhanced Cloud-Native Tracking',
                     'extracted_from': result.get('extracted_from', 'cloud_native_tracker')
                 }
                 
@@ -656,8 +656,8 @@ class EnhancedStreamlitCloudTracker:
                     'error': result.get('error', 'Tracking failed'),
                     'explanation': result.get('explanation', 'Unable to retrieve tracking information'),
                     'processing_time': processing_time,
-                    'method': 'cloud_native_http',
-                    'enhancement_level': 'Cloud-Native HTTP Tracking',
+                    'method': result.get('extracted_from', 'cloud_native_tracker'),
+                    'enhancement_level': 'Enhanced Cloud-Native Tracking',
                     'next_phase_recommendation': 'Consider manual tracking via carrier website'
                 }
                 
@@ -680,8 +680,8 @@ class EnhancedStreamlitCloudTracker:
                 'error': str(e),
                 'explanation': f'Technical error occurred during cloud-native tracking: {str(e)}',
                 'processing_time': processing_time,
-                'method': 'cloud_native_http',
-                'enhancement_level': 'Cloud-Native HTTP Tracking',
+                'method': 'cloud_native_tracker_error',
+                'enhancement_level': 'Enhanced Cloud-Native Tracking',
                 'next_phase_recommendation': 'Check network connectivity and try again'
             }
     
@@ -1914,8 +1914,8 @@ class StreamlitCloudTracker:
                         'is_delivered': 'delivered' in result.get('tracking_status', '').lower(),
                         'confidence_score': 0.8,
                         'processing_time': processing_time,
-                        'method': 'cloud_native_http',
-                        'enhancement_level': 'Cloud-Native HTTP Tracking'
+                        'method': result.get('extracted_from', 'cloud_native_tracker'),
+                        'enhancement_level': 'Enhanced Cloud-Native Tracking'
                     }
                 else:
                     logger.debug(f"❌ Cloud-native tracking failed for {carrier} - {tracking_number}")
