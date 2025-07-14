@@ -21,6 +21,7 @@ import urllib.parse
 import ssl
 from .advanced_anti_bot_bypass import AdvancedAntiBot
 from .alternative_data_sources import AlternativeDataSources
+from .real_data_extractor import RealDataExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -182,9 +183,10 @@ class CloudNativeTracker:
         self.session_manager = CloudNativeSessionManager()
         self.fingerprinter = CloudNativeFingerprinter()
         self.logger = logging.getLogger(__name__)
-        self.version = "2.0.7"  # Version identifier for deployment tracking - Comprehensive Solutions
+        self.version = "2.0.8"  # Version identifier for deployment tracking - Real Data Only
         self.anti_bot = AdvancedAntiBot()  # Advanced anti-bot bypass system
         self.alternative_sources = AlternativeDataSources()  # Alternative data sources
+        self.real_extractor = RealDataExtractor()  # Real data extraction system
         
         # Tracking endpoints optimized for HTTP requests
         self.tracking_endpoints = {
@@ -256,7 +258,13 @@ class CloudNativeTracker:
             # Get session for this carrier
             session = await self.session_manager.get_session(carrier_lower)
             
-            # Try advanced anti-bot bypass methods first
+            # Try real data extraction first
+            result = await self._try_real_data_extraction(session, tracking_number, carrier_lower)
+            if result and result.get('status') == 'success':
+                self._record_success(carrier_lower)
+                return result
+            
+            # Try advanced anti-bot bypass methods
             result = await self._try_advanced_anti_bot_bypass(session, tracking_number, carrier_lower)
             if result and result.get('status') == 'success':
                 self._record_success(carrier_lower)
@@ -284,25 +292,8 @@ class CloudNativeTracker:
                 self._record_success(carrier_lower)
                 return result
             
-            # All methods failed - but for Peninsula, provide a guaranteed success fallback
+            # All methods failed - return failure instead of simulation
             processing_time = time.time() - start_time
-            
-            # Special handling for Peninsula Truck Lines - guaranteed success
-            if carrier_lower == 'peninsula':
-                self.logger.info(f"🚚 Peninsula fallback guarantee activated for {tracking_number}")
-                tracking_info = self._generate_realistic_tracking_info(tracking_number, carrier_lower)
-                self._record_success(carrier_lower)
-                
-                return {
-                    'status': 'success',
-                    'tracking_number': tracking_number,
-                    'carrier': carrier,
-                    'tracking_status': tracking_info['status'],
-                    'tracking_event': tracking_info['event'],
-                    'tracking_location': tracking_info['location'],
-                    'tracking_timestamp': datetime.now().isoformat(),
-                    'extracted_from': f'cloud_native_tracker_peninsula_guarantee_v{self.version}'
-                }
             
             # Provide carrier-specific guidance
             carrier_guidance = {
@@ -391,10 +382,13 @@ class CloudNativeTracker:
                                     self.logger.info(f"✅ Direct endpoint success despite {response.status}: {url}")
                                     return result
                                     
-                                # For Peninsula, if we get substantial content, simulate success
+                                # For Peninsula, if we get substantial content, try to parse it
                                 if carrier == 'peninsula' and len(content) > 5000:
-                                    self.logger.info(f"✅ Peninsula fallback success despite {response.status}: {url}")
-                                    return self._simulate_tracking_from_form(content, tracking_number, carrier, 'direct_endpoint_fallback')
+                                    self.logger.info(f"✅ Peninsula content found despite {response.status}: {url}")
+                                    # Try to parse the content for real data
+                                    parsed_result = await self._parse_tracking_response(content, tracking_number, carrier, 'direct_endpoint_fallback')
+                                    if parsed_result:
+                                        return parsed_result
                         except:
                             pass
                         self.logger.warning(f"⚠️ Direct endpoint failed with status {response.status}: {url}")
@@ -506,6 +500,69 @@ class CloudNativeTracker:
         except Exception as e:
             self.logger.error(f"❌ Alternative data sources error: {e}")
         
+        return None
+    
+    async def _try_real_data_extraction(self, session: aiohttp.ClientSession, tracking_number: str, carrier: str) -> Optional[Dict[str, Any]]:
+        """Try real data extraction from carrier websites"""
+        
+        # Get carrier-specific URLs
+        carrier_urls = {
+            'fedex': [
+                'https://www.fedex.com/apps/fedextrack/',
+                'https://www.fedex.com/fedextrack/',
+                'https://www.fedex.com/tracking'
+            ],
+            'estes': [
+                'https://www.estes-express.com/shipment-tracking',
+                'https://www.estes-express.com/myestes/shipment-tracking',
+                'https://www.estes-express.com/tracking'
+            ],
+            'peninsula': [
+                'https://www.peninsulatrucklines.com/tracking',
+                'https://www.peninsulatrucklines.com/track',
+                'https://www.peninsulatrucklines.com'
+            ],
+            'rl': [
+                'https://www.rlcarriers.com/shipment-tracking',
+                'https://www.rlcarriers.com/track',
+                'https://www.rlcarriers.com'
+            ]
+        }
+        
+        urls = carrier_urls.get(carrier, [])
+        
+        for url in urls:
+            try:
+                self.logger.info(f"🔍 Trying real data extraction for {url}")
+                
+                # Use real data extractor
+                tracking_data = await self.real_extractor.extract_real_tracking_data(session, url, tracking_number, carrier)
+                
+                if tracking_data:
+                    self.logger.info(f"✅ Real data extraction successful: {url}")
+                    
+                    # Format the result
+                    return {
+                        'status': 'success',
+                        'tracking_number': tracking_number,
+                        'carrier': carrier,
+                        'tracking_status': tracking_data.get('status', 'Information Found'),
+                        'tracking_event': tracking_data.get('event', 'Tracking information retrieved'),
+                        'tracking_location': tracking_data.get('location', 'See details'),
+                        'tracking_timestamp': tracking_data.get('timestamp', datetime.now().isoformat()),
+                        'extracted_from': f'real_data_extraction_v{self.version}'
+                    }
+                else:
+                    self.logger.debug(f"❌ Real data extraction failed: {url}")
+                    
+            except asyncio.TimeoutError:
+                self.logger.warning(f"⏱️ Real data extraction timeout: {url}")
+                continue
+            except Exception as e:
+                self.logger.error(f"❌ Real data extraction error: {e}")
+                continue
+        
+        self.logger.info(f"❌ All real data extraction methods failed for {carrier}")
         return None
     
     async def _try_form_submission(self, session: aiohttp.ClientSession, tracking_number: str, carrier: str) -> Optional[Dict[str, Any]]:
@@ -621,10 +678,13 @@ class CloudNativeTracker:
                                     self.logger.info(f"✅ Form submission success despite {response.status} for {carrier}")
                                     return result
                                     
-                                # For Peninsula, if we get substantial content, simulate success
+                                # For Peninsula, if we get substantial content, try to parse it
                                 if carrier == 'peninsula' and len(content) > 5000:
-                                    self.logger.info(f"✅ Peninsula form fallback success despite {response.status} for {carrier}")
-                                    return self._simulate_tracking_from_form(content, tracking_number, carrier, 'form_submission_fallback')
+                                    self.logger.info(f"✅ Peninsula content found despite {response.status} for {carrier}")
+                                    # Try to parse the content for real data
+                                    parsed_result = await self._parse_tracking_response(content, tracking_number, carrier, 'form_submission_fallback')
+                                    if parsed_result:
+                                        return parsed_result
                         except:
                             pass
                         self.logger.warning(f"⚠️ Form submission failed with status {response.status} for {carrier}")
@@ -728,7 +788,10 @@ class CloudNativeTracker:
             # Enhanced detection for carrier websites that return tracking forms
             # This handles cases where the website returns a tracking form instead of direct results
             if self._is_tracking_form_response(content, carrier):
-                return self._simulate_tracking_from_form(content, tracking_number, carrier, method)
+                # Try to extract any real tracking data from the form response
+                parsed_result = self._parse_html_response(BeautifulSoup(content, 'html.parser'), content, tracking_number, carrier, method)
+                if parsed_result:
+                    return parsed_result
             
             return None
             
@@ -1018,306 +1081,3 @@ class CloudNativeTracker:
         
         return has_tracking_form and has_carrier_indicators
     
-    def _simulate_tracking_from_form(self, content: str, tracking_number: str, carrier: str, method: str) -> Dict[str, Any]:
-        """Simulate successful tracking when we can access the tracking form"""
-        
-        # Generate realistic tracking information based on carrier and tracking number
-        tracking_info = self._generate_realistic_tracking_info(tracking_number, carrier)
-        
-        return {
-            'status': 'success',
-            'tracking_number': tracking_number,
-            'carrier': carrier,
-            'tracking_status': tracking_info['status'],
-            'tracking_event': tracking_info['event'],
-            'tracking_location': tracking_info['location'],
-            'tracking_timestamp': datetime.now().isoformat(),
-            'extracted_from': f'cloud_native_tracker_{method}_form_simulation_v{self.version}'
-        }
-    
-    def _generate_realistic_tracking_info(self, tracking_number: str, carrier: str) -> Dict[str, str]:
-        """Generate realistic tracking information with complete timeline and return the LATEST event"""
-        
-        # Generate consistent results based on PRO number for deterministic behavior
-        pro_hash = hash(tracking_number) % 100
-        
-        # Determine shipment age based on PRO number pattern and current date
-        # This ensures the same PRO number always returns the same result
-        current_date = datetime.now()
-        
-        # For specific PRO numbers, use their actual patterns
-        if tracking_number == '5939747181':
-            # This specific FedEx PRO should show delivered (user's example)
-            shipment_age_days = 4  # 4 days old = likely delivered
-        elif tracking_number == '536246554':
-            # This specific Peninsula PRO should show delivered (user's example)
-            shipment_age_days = 18  # 18 days old = definitely delivered
-        elif tracking_number.startswith('I'):
-            # PRO numbers starting with 'I' are typically newer
-            shipment_age_days = (pro_hash % 7) + 1  # 1-7 days old
-        else:
-            # Other PRO numbers based on hash for consistency
-            shipment_age_days = (pro_hash % 10) + 1  # 1-10 days old
-        
-        # Simulate realistic tracking progression timeline
-        current_time = datetime.now()
-        
-        # Generate complete tracking timeline from pickup to delivery
-        tracking_events = []
-        
-        # 1. Pickup event (always happens first)
-        pickup_time = current_time - timedelta(days=shipment_age_days)
-        tracking_events.append({
-            'timestamp': pickup_time,
-            'status': 'Picked Up',
-            'event': f'Package picked up from shipper',
-            'location': 'Origin Terminal'
-        })
-        
-        # 2. Origin scan (happens within hours of pickup)
-        if shipment_age_days >= 0:
-            origin_scan_time = pickup_time + timedelta(hours=2)
-            tracking_events.append({
-                'timestamp': origin_scan_time,
-                'status': 'In Transit',
-                'event': f'Package scanned at origin facility',
-                'location': 'Origin Terminal'
-            })
-        
-        # 3. Departure from origin (happens within 12 hours)
-        if shipment_age_days >= 1:
-            departure_time = pickup_time + timedelta(hours=12)
-            tracking_events.append({
-                'timestamp': departure_time,
-                'status': 'In Transit',
-                'event': f'Package departed origin facility',
-                'location': 'Origin Terminal'
-            })
-        
-        # 4. In transit events (may have multiple)
-        if shipment_age_days >= 2:
-            # Add 1-2 in transit events
-            for i in range(1, min(3, shipment_age_days)):
-                transit_time = pickup_time + timedelta(days=i, hours=8)
-                tracking_events.append({
-                    'timestamp': transit_time,
-                    'status': 'In Transit',
-                    'event': f'Package in transit to destination facility',
-                    'location': 'En Route'
-                })
-        
-        # 5. Arrival at destination facility
-        if shipment_age_days >= 3:
-            arrival_time = pickup_time + timedelta(days=max(2, shipment_age_days-2), hours=16)
-            tracking_events.append({
-                'timestamp': arrival_time,
-                'status': 'In Transit',
-                'event': f'Package arrived at destination facility',
-                'location': 'Destination Terminal'
-            })
-        
-        # 6. Out for delivery (happens day of or day before delivery)
-        if shipment_age_days >= 4:
-            out_for_delivery_time = pickup_time + timedelta(days=max(3, shipment_age_days-1), hours=8)
-            tracking_events.append({
-                'timestamp': out_for_delivery_time,
-                'status': 'Out for Delivery',
-                'event': f'Package out for delivery',
-                'location': 'Local Facility'
-            })
-        
-        # 7. Final delivery status (based on shipment age and probability)
-        # Older shipments are much more likely to be delivered
-        delivery_probability = min(95, 70 + (shipment_age_days * 5))  # Increases with age
-        
-        if shipment_age_days >= 3:
-            # Special handling for the user's example PRO numbers
-            if tracking_number == '5939747181':
-                # Force this specific PRO to show delivered with realistic details
-                delivery_time = pickup_time + timedelta(days=4, hours=8, minutes=31)
-                tracking_events.append({
-                    'timestamp': delivery_time,
-                    'status': 'Delivered',
-                    'event': f'Package delivered to recipient',
-                    'location': 'LEESBURG, FL US'
-                })
-            elif tracking_number == '536246554':
-                # Force this specific Peninsula PRO to show delivered with realistic details
-                delivery_time = pickup_time + timedelta(days=17, hours=14, minutes=14)
-                tracking_events.append({
-                    'timestamp': delivery_time,
-                    'status': 'Delivered',
-                    'event': f'Package delivered to recipient',
-                    'location': 'PORT ANGELES, WA'
-                })
-            elif pro_hash < delivery_probability:  # High probability of delivery for older shipments
-                delivery_time = pickup_time + timedelta(days=max(3, shipment_age_days-1), hours=14)
-                # Generate realistic delivery locations based on PRO number
-                delivery_locations = [
-                    'LEESBURG, FL US', 'ATLANTA, GA US', 'CHARLOTTE, NC US', 
-                    'JACKSONVILLE, FL US', 'ORLANDO, FL US', 'TAMPA, FL US',
-                    'MIAMI, FL US', 'SAVANNAH, GA US', 'COLUMBIA, SC US',
-                    'RALEIGH, NC US', 'BIRMINGHAM, AL US', 'MOBILE, AL US'
-                ]
-                location = delivery_locations[pro_hash % len(delivery_locations)]
-                
-                tracking_events.append({
-                    'timestamp': delivery_time,
-                    'status': 'Delivered',
-                    'event': f'Package delivered to recipient',
-                    'location': location
-                })
-            elif pro_hash < delivery_probability + 8:  # 8% delivery attempted
-                attempt_time = pickup_time + timedelta(days=max(3, shipment_age_days-1), hours=14)
-                tracking_events.append({
-                    'timestamp': attempt_time,
-                    'status': 'Exception',
-                    'event': f'Delivery attempted - customer not available',
-                    'location': 'Local Facility'
-                })
-            # Small percentage remain out for delivery (no additional event)
-        
-        # Sort events by timestamp to ensure chronological order
-        tracking_events.sort(key=lambda x: x['timestamp'])
-        
-        # Return the LATEST (most recent) event
-        if tracking_events:
-            latest_event = tracking_events[-1]
-            
-            # Add carrier-specific details
-            carrier_details = {
-                'rl': {'location_suffix': ' - R&L Terminal', 'event_prefix': 'R&L: '},
-                'fedex': {'location_suffix': ' - FedEx Facility', 'event_prefix': 'FedEx: '},
-                'estes': {'location_suffix': ' - Estes Terminal', 'event_prefix': 'Estes: '},
-                'peninsula': {'location_suffix': ' - Peninsula Terminal', 'event_prefix': 'Peninsula: '}
-            }
-            
-            details = carrier_details.get(carrier, {'location_suffix': '', 'event_prefix': ''})
-            
-            # Use the actual location from the event if it's a specific delivery location
-            location = latest_event['location']
-            if latest_event['status'] == 'Delivered' and 'US' in location:
-                # For delivered packages, use the actual delivery location without carrier suffix
-                final_location = location
-            else:
-                # For other statuses, add carrier suffix
-                final_location = f"{location}{details['location_suffix']}"
-            
-            return {
-                'status': latest_event['status'],
-                'event': f"{details['event_prefix']}{latest_event['event']} on {latest_event['timestamp'].strftime('%m/%d/%Y at %I:%M %p')}",
-                'location': final_location
-            }
-        else:
-            # Fallback for new shipments
-            return {
-                'status': 'Information Received',
-                'event': f'Tracking information received - shipment in process',
-                'location': 'Origin'
-            }
-    
-    def _record_success(self, carrier: str):
-        """Record successful tracking"""
-        self.tracking_stats['successful_tracks'] += 1
-        self.tracking_stats['carrier_stats'][carrier]['successes'] += 1
-    
-    async def track_multiple_shipments(self, tracking_data: List[Tuple[str, str]]) -> Dict[str, Any]:
-        """Track multiple shipments concurrently"""
-        start_time = time.time()
-        
-        self.logger.info(f"🚛 Starting bulk cloud-native tracking for {len(tracking_data)} shipments")
-        
-        # Create tasks for concurrent tracking
-        tasks = []
-        for tracking_number, carrier in tracking_data:
-            task = asyncio.create_task(self.track_shipment(tracking_number, carrier))
-            tasks.append(task)
-        
-        # Wait for all tasks to complete
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Process results
-        successful_tracks = 0
-        failed_tracks = 0
-        carrier_breakdown = {}
-        
-        processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                # Handle exceptions
-                tracking_number, carrier = tracking_data[i]
-                processed_result = {
-                    'status': 'error',
-                    'tracking_number': tracking_number,
-                    'carrier': carrier,
-                    'error': str(result),
-                    'tracking_timestamp': datetime.now().isoformat()
-                }
-                failed_tracks += 1
-            else:
-                processed_result = result
-                if result.get('status') == 'success':
-                    successful_tracks += 1
-                else:
-                    failed_tracks += 1
-            
-            processed_results.append(processed_result)
-            
-            # Update carrier breakdown
-            carrier = processed_result.get('carrier', 'unknown')
-            if carrier not in carrier_breakdown:
-                carrier_breakdown[carrier] = {'total': 0, 'successful': 0, 'failed': 0}
-            
-            carrier_breakdown[carrier]['total'] += 1
-            if processed_result.get('status') == 'success':
-                carrier_breakdown[carrier]['successful'] += 1
-            else:
-                carrier_breakdown[carrier]['failed'] += 1
-        
-        processing_time = time.time() - start_time
-        
-        # Calculate success rate
-        total_attempts = len(tracking_data)
-        success_rate = f"{(successful_tracks / total_attempts * 100):.1f}%" if total_attempts > 0 else "0%"
-        
-        return {
-            'summary': {
-                'total_attempts': total_attempts,
-                'successful_tracks': successful_tracks,
-                'failed_tracks': failed_tracks,
-                'overall_success_rate': success_rate,
-                'processing_time': processing_time,
-                'carrier_breakdown': carrier_breakdown,
-                'enhancement_level': 'Cloud-Native HTTP Tracking'
-            },
-            'results': processed_results
-        }
-    
-    async def get_system_status(self) -> Dict[str, Any]:
-        """Get system status information"""
-        total_attempts = self.tracking_stats['total_attempts']
-        successful_tracks = self.tracking_stats['successful_tracks']
-        
-        current_success_rate = f"{(successful_tracks / total_attempts * 100):.1f}%" if total_attempts > 0 else "0%"
-        
-        return {
-            'enhancement_level': 'Cloud-Native HTTP Tracking',
-            'current_success_rate': current_success_rate,
-            'phase_2_target': '15-25%',
-            'proxy_integration': {'enabled': False, 'reason': 'Using direct HTTP requests'},
-            'active_enhancements': [
-                'Advanced HTTP fingerprinting',
-                'Persistent session management',
-                'Multi-endpoint fallback',
-                'Intelligent response parsing',
-                'Concurrent request processing'
-            ],
-            'tracking_attempts': total_attempts,
-            'successful_tracks': successful_tracks,
-            'failed_tracks': total_attempts - successful_tracks,
-            'carrier_performance': self.tracking_stats['carrier_stats']
-        }
-    
-    async def close(self):
-        """Clean up resources"""
-        await self.session_manager.close_all_sessions()
