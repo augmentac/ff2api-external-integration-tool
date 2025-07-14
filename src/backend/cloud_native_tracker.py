@@ -180,6 +180,7 @@ class CloudNativeTracker:
         self.session_manager = CloudNativeSessionManager()
         self.fingerprinter = CloudNativeFingerprinter()
         self.logger = logging.getLogger(__name__)
+        self.version = "2.0.1"  # Version identifier for deployment tracking
         
         # Tracking endpoints optimized for HTTP requests
         self.tracking_endpoints = {
@@ -267,7 +268,7 @@ class CloudNativeTracker:
                 self._record_success(carrier_lower)
                 return result
             
-            # All methods failed - return informative error
+            # All methods failed - return informative error with debugging info
             processing_time = time.time() - start_time
             
             # Provide carrier-specific guidance
@@ -280,6 +281,14 @@ class CloudNativeTracker:
             
             guidance = carrier_guidance.get(carrier_lower, 'Try tracking directly on the carrier website')
             
+            # Enhanced error information for debugging cloud deployment
+            methods_attempted = ['direct_endpoints', 'form_submission', 'api_endpoints']
+            
+            # Log additional debugging info for cloud deployment
+            self.logger.info(f"❌ All methods failed for {carrier_lower} - {tracking_number}")
+            self.logger.info(f"🔍 Methods attempted: {methods_attempted}")
+            self.logger.info(f"⏱️ Processing time: {processing_time:.2f}s")
+            
             return {
                 'status': 'error',
                 'tracking_number': tracking_number,
@@ -289,8 +298,14 @@ class CloudNativeTracker:
                 'processing_time': processing_time,
                 'tracking_timestamp': datetime.now().isoformat(),
                 'extracted_from': 'cloud_native_tracker_all_methods_failed',
-                'methods_attempted': ['direct_endpoints', 'form_submission', 'api_endpoints'],
-                'next_steps': f'Manual tracking recommended: {guidance}'
+                'methods_attempted': methods_attempted,
+                'next_steps': f'Manual tracking recommended: {guidance}',
+                'debug_info': {
+                    'carrier_mapped': carrier_lower,
+                    'total_attempts': self.tracking_stats['total_attempts'],
+                    'successful_tracks': self.tracking_stats['successful_tracks'],
+                    'cloud_deployment': True
+                }
             }
             
         except Exception as e:
@@ -637,17 +652,57 @@ class CloudNativeTracker:
                         'extracted_from': f'cloud_native_tracker_{method}_pattern'
                     }
         
-        # If no specific patterns found but tracking number is present, return generic success
-        if tracking_number in content:
+        # Enhanced tracking number detection with more flexible matching
+        content_lower = content.lower()
+        tracking_lower = tracking_number.lower()
+        
+        # Check for tracking number in various formats
+        tracking_found = any([
+            tracking_number in content,
+            tracking_lower in content_lower,
+            tracking_number.replace('-', '') in content.replace('-', ''),
+            tracking_number.replace(' ', '') in content.replace(' ', ''),
+            # Handle PRO numbers with prefixes/suffixes
+            any(variant in content for variant in [f"pro {tracking_number}", f"pro: {tracking_number}", f"#{tracking_number}"])
+        ])
+        
+        if tracking_found:
+            # Look for more specific status information
+            status_found = 'Information Found'
+            event_found = 'Tracking information located in response'
+            location_found = 'See carrier website for details'
+            
+            # Enhanced status detection
+            if any(word in content_lower for word in ['delivered', 'delivery complete', 'pod available']):
+                status_found = 'Delivered'
+                event_found = 'Shipment has been delivered'
+                location_found = 'Destination'
+            elif any(word in content_lower for word in ['in transit', 'on route', 'en route']):
+                status_found = 'In Transit'
+                event_found = 'Shipment is in transit'
+                location_found = 'In transit'
+            elif any(word in content_lower for word in ['picked up', 'collected', 'dispatched']):
+                status_found = 'Picked Up'
+                event_found = 'Shipment has been picked up'
+                location_found = 'Origin'
+            elif any(word in content_lower for word in ['out for delivery', 'out for del']):
+                status_found = 'Out for Delivery'
+                event_found = 'Shipment is out for delivery'
+                location_found = 'Near destination'
+            elif any(word in content_lower for word in ['exception', 'delay', 'problem']):
+                status_found = 'Exception'
+                event_found = 'Shipment has an exception or delay'
+                location_found = 'See carrier for details'
+            
             return {
                 'status': 'success',
                 'tracking_number': tracking_number,
                 'carrier': carrier,
-                'tracking_status': 'Information Found',
-                'tracking_event': 'Tracking information located in response',
-                'tracking_location': 'See carrier website for details',
+                'tracking_status': status_found,
+                'tracking_event': event_found,
+                'tracking_location': location_found,
                 'tracking_timestamp': datetime.now().isoformat(),
-                'extracted_from': f'cloud_native_tracker_{method}_generic'
+                'extracted_from': f'cloud_native_tracker_{method}_enhanced_v{self.version}'
             }
         
         # Check for any status indicators
