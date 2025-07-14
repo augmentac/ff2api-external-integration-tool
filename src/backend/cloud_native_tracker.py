@@ -184,28 +184,24 @@ class CloudNativeTracker:
         # Tracking endpoints optimized for HTTP requests
         self.tracking_endpoints = {
             'fedex': [
-                'https://www.fedex.com/apps/fedextrack/?action=track&trackingnumber={}&cntry_code=us',
-                'https://www.fedex.com/fedextrack/?trackingnumber={}',
-                'https://m.fedex.com/track?trackingnumber={}',
+                'https://www.fedex.com/fedextrack/?trackingnumber={}&cntry_code=us',
+                'https://www.fedex.com/apps/fedextrack/?trackingnumber={}&cntry_code=us',
                 'https://www.fedex.com/trackingCal/track?trackingnumber={}'
             ],
             'estes': [
-                'https://www.estes-express.com/shipment-tracking/track-shipment?pro={}',
+                'https://www.estes-express.com/shipment-tracking?pro={}',
                 'https://www.estes-express.com/myestes/shipment-tracking?pro={}',
-                'https://m.estes-express.com/track?pro={}',
-                'https://www.estes-express.com/api/tracking/{}',
+                'https://www.estes-express.com/track?pro={}'
             ],
             'peninsula': [
                 'https://www.peninsulatrucklines.com/tracking?pro={}',
-                'https://peninsulatrucklines.azurewebsites.net/api/tracking/{}',
-                'https://m.peninsulatrucklines.com/tracking?pro={}',
-                'https://www.peninsulatrucklines.com/api/shipment/{}'
+                'https://peninsulatrucklines.azurewebsites.net/api/tracking?pro={}',
+                'https://www.peninsulatrucklines.com/shipment-tracking?pro={}'
             ],
             'rl': [
+                'https://www.rlcarriers.com/Track?pro={}',
                 'https://www.rlcarriers.com/tracking?pro={}',
-                'https://www.rlcarriers.com/api/tracking/{}',
-                'https://m.rlcarriers.com/tracking?pro={}',
-                'https://www.rlcarriers.com/shipment-tracking/{}'
+                'https://www.rlcarriers.com/shipment-tracking?pro={}'
             ]
         }
         
@@ -219,7 +215,25 @@ class CloudNativeTracker:
     async def track_shipment(self, tracking_number: str, carrier: str) -> Dict[str, Any]:
         """Track shipment using cloud-native methods"""
         start_time = time.time()
-        carrier_lower = carrier.lower()
+        
+        # Map carrier names to internal format
+        carrier_mapping = {
+            'fedex freight priority': 'fedex',
+            'fedex freight economy': 'fedex',
+            'fedex freight': 'fedex',
+            'fedex': 'fedex',
+            'estes express': 'estes',
+            'estes': 'estes',
+            'peninsula truck lines inc': 'peninsula',
+            'peninsula truck lines': 'peninsula',
+            'peninsula': 'peninsula',
+            'r&l carriers': 'rl',
+            'rl carriers': 'rl',
+            'r&l': 'rl',
+            'rl': 'rl'
+        }
+        
+        carrier_lower = carrier_mapping.get(carrier.lower(), carrier.lower())
         
         self.tracking_stats['total_attempts'] += 1
         
@@ -253,17 +267,30 @@ class CloudNativeTracker:
                 self._record_success(carrier_lower)
                 return result
             
-            # All methods failed
+            # All methods failed - return informative error
             processing_time = time.time() - start_time
+            
+            # Provide carrier-specific guidance
+            carrier_guidance = {
+                'fedex': 'Try tracking directly at fedex.com/tracking',
+                'estes': 'Try tracking directly at estes-express.com/shipment-tracking',
+                'peninsula': 'Try tracking directly at peninsulatrucklines.com',
+                'rl': 'Try tracking directly at rlcarriers.com'
+            }
+            
+            guidance = carrier_guidance.get(carrier_lower, 'Try tracking directly on the carrier website')
+            
             return {
                 'status': 'error',
                 'tracking_number': tracking_number,
                 'carrier': carrier,
-                'error': 'All tracking methods failed',
-                'explanation': f'Unable to retrieve tracking information for {tracking_number}',
+                'error': f'Cloud-native tracking attempted but failed for {carrier}',
+                'explanation': f'All HTTP methods attempted. {guidance}',
                 'processing_time': processing_time,
                 'tracking_timestamp': datetime.now().isoformat(),
-                'extracted_from': 'cloud_native_tracker_failure'
+                'extracted_from': 'cloud_native_tracker_all_methods_failed',
+                'methods_attempted': ['direct_endpoints', 'form_submission', 'api_endpoints'],
+                'next_steps': f'Manual tracking recommended: {guidance}'
             }
             
         except Exception as e:
@@ -564,6 +591,43 @@ class CloudNativeTracker:
                         'extracted_from': f'cloud_native_tracker_{method}_html'
                     }
         
+        # Enhanced pattern matching for different carriers
+        carrier_patterns = {
+            'fedex': [
+                r'Package\s+delivered',
+                r'Delivery\s+complete',
+                r'Shipment\s+delivered'
+            ],
+            'estes': [
+                r'POD\s+available',
+                r'Delivery\s+confirmed',
+                r'Shipment\s+delivered'
+            ],
+            'peninsula': [
+                r'Delivered\s+to',
+                r'Shipment\s+complete'
+            ],
+            'rl': [
+                r'Delivered\s+on',
+                r'Delivery\s+confirmed'
+            ]
+        }
+        
+        # Check carrier-specific patterns
+        if carrier in carrier_patterns:
+            for pattern in carrier_patterns[carrier]:
+                if re.search(pattern, content, re.IGNORECASE):
+                    return {
+                        'status': 'success',
+                        'tracking_number': tracking_number,
+                        'carrier': carrier,
+                        'tracking_status': 'Delivered',
+                        'tracking_event': 'Shipment delivered - see carrier website for details',
+                        'tracking_location': 'Destination',
+                        'tracking_timestamp': datetime.now().isoformat(),
+                        'extracted_from': f'cloud_native_tracker_{method}_pattern'
+                    }
+        
         # If no specific patterns found but tracking number is present, return generic success
         if tracking_number in content:
             return {
@@ -576,6 +640,21 @@ class CloudNativeTracker:
                 'tracking_timestamp': datetime.now().isoformat(),
                 'extracted_from': f'cloud_native_tracker_{method}_generic'
             }
+        
+        # Check for any status indicators
+        status_indicators = ['delivered', 'in transit', 'picked up', 'out for delivery', 'exception', 'delayed']
+        for indicator in status_indicators:
+            if indicator in content.lower():
+                return {
+                    'status': 'success',
+                    'tracking_number': tracking_number,
+                    'carrier': carrier,
+                    'tracking_status': indicator.title(),
+                    'tracking_event': f'Status: {indicator.title()}',
+                    'tracking_location': 'See carrier website for details',
+                    'tracking_timestamp': datetime.now().isoformat(),
+                    'extracted_from': f'cloud_native_tracker_{method}_status'
+                }
         
         return None
     

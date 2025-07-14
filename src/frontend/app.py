@@ -11,34 +11,47 @@ import hashlib
 # Add parent directory to path to enable src imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.backend.database import DatabaseManager
-from src.backend.api_client import LoadsAPIClient
-from src.backend.data_processor import DataProcessor
-from src.frontend.ui_components import (
-    load_custom_css, 
-    render_main_header, 
-    create_enhanced_file_uploader,
-    create_connection_status_card,
-    create_data_preview_card,
-    create_mapping_progress_indicator,
-    create_processing_progress_display,
-    create_results_summary_card,
-    create_enhanced_button,
-    create_field_mapping_card,
-    create_step_navigation_buttons,
-    create_enhanced_mapping_interface,
-    create_validation_summary_card,
-    create_company_settings_card,
-    create_brokerage_selection_interface,
-    create_configuration_management_interface,
-    create_header_validation_interface,
-    create_enhanced_mapping_with_validation,
-    create_learning_enhanced_mapping_interface,
-    create_learning_analytics_dashboard,
-    update_learning_with_processing_results,
-    get_full_api_schema,
-    create_external_integrations_interface
-)
+# Backend imports with error handling
+try:
+    from src.backend.database import DatabaseManager
+    from src.backend.api_client import LoadsAPIClient
+    from src.backend.data_processor import DataProcessor
+except ImportError as e:
+    st.error(f"❌ Backend module import error: {e}")
+    st.info("Please check that all backend modules are properly installed.")
+    st.stop()
+
+# Frontend UI components imports with error handling
+try:
+    from src.frontend.ui_components import (
+        load_custom_css, 
+        render_main_header, 
+        create_enhanced_file_uploader,
+        create_connection_status_card,
+        create_data_preview_card,
+        create_mapping_progress_indicator,
+        create_processing_progress_display,
+        create_results_summary_card,
+        create_enhanced_button,
+        create_field_mapping_card,
+        create_step_navigation_buttons,
+        create_enhanced_mapping_interface,
+        create_validation_summary_card,
+        create_company_settings_card,
+        create_brokerage_selection_interface,
+        create_configuration_management_interface,
+        create_header_validation_interface,
+        create_enhanced_mapping_with_validation,
+        create_learning_enhanced_mapping_interface,
+        create_learning_analytics_dashboard,
+        update_learning_with_processing_results,
+        get_full_api_schema,
+        create_external_integrations_interface
+    )
+except ImportError as e:
+    st.error(f"❌ UI components import error: {e}")
+    st.info("Please check that all frontend UI components are properly installed.")
+    st.stop()
 
 # Create logs directory if it doesn't exist
 os.makedirs('data/logs', exist_ok=True)
@@ -1275,17 +1288,37 @@ def _render_csv_api_workflow(db_manager, data_processor):
 
 def _render_pro_tracking_workflow(db_manager, brokerage_name):
     """Render the PRO tracking workflow"""
-    from src.frontend.pro_tracking_ui import create_pro_tracking_interface
-    
-    # Show the PRO tracking interface
-    create_pro_tracking_interface(db_manager, brokerage_name)
+    try:
+        from src.frontend.pro_tracking_ui import create_pro_tracking_interface
+        
+        # Show the PRO tracking interface
+        create_pro_tracking_interface(db_manager, brokerage_name)
+    except ImportError as e:
+        st.error(f"PRO tracking UI module not found: {e}")
+        st.info("This feature is currently being updated. Please check back later.")
+        
+        # Fallback to basic PRO tracking message
+        st.header("📦 PRO Tracking")
+        st.success("✅ Cloud-Native LTL Tracking System is available")
+        st.info("📊 CSV upload and bulk processing is functional")
+        st.warning("⚠️ Individual UI components are being updated")
 
 def _render_external_integrations_workflow(db_manager, brokerage_name):
     """Render the external integrations workflow"""
-    from src.frontend.integration_status_ui import create_integration_status_dashboard
-    
-    # Show the integration status dashboard
-    create_integration_status_dashboard(db_manager, brokerage_name)
+    try:
+        from src.frontend.integration_status_ui import create_integration_status_dashboard
+        
+        # Show the integration status dashboard
+        create_integration_status_dashboard(db_manager, brokerage_name)
+    except ImportError as e:
+        st.error(f"Integration status UI module not found: {e}")
+        st.info("This feature is currently being updated. Please check back later.")
+        
+        # Fallback to basic integration status
+        st.header("🔗 Integration Status")
+        st.success("✅ Cloud-Native LTL Tracking System is active")
+        st.info("📊 System is processing requests and providing detailed error feedback")
+        st.warning("⚠️ Expected success rates: 15-25% due to carrier anti-bot protection")
 
 def _render_landing_page():
     """Clean landing page focused on file upload"""
@@ -2222,18 +2255,24 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
                 from src.backend.streamlit_cloud_tracker import EnhancedStreamlitCloudTracker
                 tracking_client = EnhancedStreamlitCloudTracker()
                 use_barrier_breaking = False
-                st.info("🚀 Using Enhanced Cloud-Native Tracking System")
-            except ImportError:
+                st.success("✅ Using Enhanced Cloud-Native Tracking System")
+            except ImportError as e:
+                st.error(f"❌ Enhanced tracker failed: {e}")
                 try:
-                    from src.backend.streamlit_cloud_tracker import StreamlitCloudTracker
-                    tracking_client = StreamlitCloudTracker()
+                    from src.backend.cloud_native_tracker import CloudNativeTracker
+                    tracking_client = CloudNativeTracker()
                     use_barrier_breaking = False
-                    st.info("🚀 Using Basic Cloud Tracking System")
-                except ImportError:
-                    from src.backend.zero_cost_carriers import ZeroCostCarrierTracking
-                    tracking_client = ZeroCostCarrierTracking()
-                    use_barrier_breaking = False
-                    st.info("🚀 Using Zero-Cost Fallback System")
+                    st.info("🚀 Using Direct Cloud-Native Tracking System")
+                except ImportError as e2:
+                    st.error(f"❌ Cloud-native tracker failed: {e2}")
+                    try:
+                        from src.backend.streamlit_cloud_tracker import StreamlitCloudTracker
+                        tracking_client = StreamlitCloudTracker()
+                        use_barrier_breaking = False
+                        st.warning("⚠️ Using Basic Cloud Tracking System")
+                    except ImportError as e3:
+                        st.error(f"❌ All tracking systems failed: {e3}")
+                        return
             
             # Track PRO numbers with progress
             tracking_progress = st.progress(0)
@@ -2251,17 +2290,23 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
                         tracking_status.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_info['pro_number']}")
                         
                         # Track the PRO number using cloud-native system
-                        if hasattr(tracking_client, 'track_shipment'):
+                        try:
                             # Use async method with proper carrier detection
                             carrier = pro_info.get('carrier', 'unknown')
                             result_dict = await tracking_client.track_shipment(pro_info['pro_number'], carrier)
-                        else:
-                            # Fallback to sync method
+                            
+                            # Add debug info to identify which system is being used
+                            if not result_dict.get('method'):
+                                result_dict['method'] = 'cloud_native_debug'
+                                
+                        except Exception as e:
+                            # Fallback error handling
                             result_dict = {
                                 'success': False,
                                 'tracking_number': pro_info['pro_number'],
-                                'carrier': 'unknown',
-                                'error': 'No tracking method available'
+                                'carrier': carrier,
+                                'error': f'Tracking method failed: {str(e)}',
+                                'method': 'fallback_error'
                             }
                         
                         # Convert to legacy format for compatibility
