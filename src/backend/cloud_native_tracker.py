@@ -672,27 +672,114 @@ class CloudNativeTracker:
             event_found = 'Tracking information located in response'
             location_found = 'See carrier website for details'
             
-            # Enhanced status detection
+            # Enhanced status detection with better location and event extraction
             if any(word in content_lower for word in ['delivered', 'delivery complete', 'pod available']):
                 status_found = 'Delivered'
                 event_found = 'Shipment has been delivered'
                 location_found = 'Destination'
+                
+                # Try to extract delivery date/time and location from content
+                import re
+                date_patterns = [
+                    r'delivered\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})',
+                    r'delivery\s+date[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})',
+                    r'(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})[^a-zA-Z]*delivered'
+                ]
+                
+                for pattern in date_patterns:
+                    match = re.search(pattern, content_lower)
+                    if match:
+                        delivery_date = match.group(1)
+                        event_found = f'Delivered on {delivery_date}'
+                        break
+                
+                # Try to extract delivery location
+                location_patterns = [
+                    r'delivered\s+to[:\s]+([^,\n\r]{5,50})',
+                    r'delivery\s+location[:\s]+([^,\n\r]{5,50})',
+                    r'delivered\s+at[:\s]+([^,\n\r]{5,50})'
+                ]
+                
+                for pattern in location_patterns:
+                    match = re.search(pattern, content_lower)
+                    if match:
+                        delivery_location = match.group(1).strip()
+                        location_found = delivery_location[:50] if len(delivery_location) > 50 else delivery_location
+                        break
+                        
             elif any(word in content_lower for word in ['in transit', 'on route', 'en route']):
                 status_found = 'In Transit'
                 event_found = 'Shipment is in transit'
                 location_found = 'In transit'
+                
+                # Try to extract current location
+                location_patterns = [
+                    r'location[:\s]+([^,\n\r]{5,50})',
+                    r'current[:\s]+([^,\n\r]{5,50})',
+                    r'at[:\s]+([^,\n\r]{5,50})'
+                ]
+                
+                for pattern in location_patterns:
+                    match = re.search(pattern, content_lower)
+                    if match:
+                        current_location = match.group(1).strip()
+                        location_found = current_location[:50] if len(current_location) > 50 else current_location
+                        break
+                        
             elif any(word in content_lower for word in ['picked up', 'collected', 'dispatched']):
                 status_found = 'Picked Up'
                 event_found = 'Shipment has been picked up'
                 location_found = 'Origin'
+                
+                # Try to extract pickup date/time
+                pickup_patterns = [
+                    r'picked\s+up\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})',
+                    r'pickup\s+date[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})'
+                ]
+                
+                for pattern in pickup_patterns:
+                    match = re.search(pattern, content_lower)
+                    if match:
+                        pickup_date = match.group(1)
+                        event_found = f'Picked up on {pickup_date}'
+                        break
+                        
             elif any(word in content_lower for word in ['out for delivery', 'out for del']):
                 status_found = 'Out for Delivery'
                 event_found = 'Shipment is out for delivery'
                 location_found = 'Near destination'
+                
+                # Try to extract estimated delivery time
+                delivery_patterns = [
+                    r'estimated\s+delivery[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})',
+                    r'delivery\s+by[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})'
+                ]
+                
+                for pattern in delivery_patterns:
+                    match = re.search(pattern, content_lower)
+                    if match:
+                        delivery_date = match.group(1)
+                        event_found = f'Out for delivery - estimated delivery {delivery_date}'
+                        break
+                        
             elif any(word in content_lower for word in ['exception', 'delay', 'problem']):
                 status_found = 'Exception'
                 event_found = 'Shipment has an exception or delay'
                 location_found = 'See carrier for details'
+                
+                # Try to extract exception details
+                exception_patterns = [
+                    r'exception[:\s]+([^,\n\r]{10,100})',
+                    r'delay[:\s]+([^,\n\r]{10,100})',
+                    r'problem[:\s]+([^,\n\r]{10,100})'
+                ]
+                
+                for pattern in exception_patterns:
+                    match = re.search(pattern, content_lower)
+                    if match:
+                        exception_detail = match.group(1).strip()
+                        event_found = f'Exception: {exception_detail[:100]}'
+                        break
             
             return {
                 'status': 'success',

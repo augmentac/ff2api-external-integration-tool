@@ -730,8 +730,8 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                             'status': result_dict.get('status', 'No status available'),
                             'location': result_dict.get('location', 'No location available'),
                             'timestamp': result_dict.get('timestamp', 'No timestamp available'),
-                            'success': result_dict.get('success', False),
-                            'error_message': result_dict.get('error', '') if not result_dict.get('success') else None,
+                            'success': result_dict.get('status') == 'success' or result_dict.get('success', False) or result_dict.get('tracking_status') in ['Delivered', 'Information Found', 'In Transit', 'Picked Up', 'Out for Delivery'],
+                            'error_message': result_dict.get('error', '') if not (result_dict.get('status') == 'success' or result_dict.get('success', False) or result_dict.get('tracking_status') in ['Delivered', 'Information Found', 'In Transit', 'Picked Up', 'Out for Delivery']) else None,
                             'method': result_dict.get('extracted_from', result_dict.get('method', result_dict.get('enhancement_level', system_name))),
                             'barrier_solved': result_dict.get('barrier_solved', ''),
                             # Preserve cloud-native details
@@ -748,8 +748,8 @@ def _process_pro_tracking(df: pd.DataFrame, mappings: Dict[str, str]):
                             'status': result_dict.get('tracking_status', result_dict.get('status', 'No status available')),
                             'location': result_dict.get('tracking_location', result_dict.get('location', 'No location available')),
                             'timestamp': result_dict.get('tracking_timestamp', result_dict.get('timestamp', 'No timestamp available')),
-                            'success': result_dict.get('status') == 'success' if 'status' in result_dict else result_dict.get('success', False),
-                            'error_message': result_dict.get('message', result_dict.get('error', '')) if result_dict.get('status') != 'success' else None,
+                            'success': result_dict.get('status') == 'success' or result_dict.get('success', False) or result_dict.get('tracking_status') in ['Delivered', 'Information Found', 'In Transit', 'Picked Up', 'Out for Delivery'],
+                            'error_message': result_dict.get('message', result_dict.get('error', '')) if not (result_dict.get('status') == 'success' or result_dict.get('success', False) or result_dict.get('tracking_status') in ['Delivered', 'Information Found', 'In Transit', 'Picked Up', 'Out for Delivery']) else None,
                             'method': result_dict.get('extracted_from', result_dict.get('method', result_dict.get('enhancement_level', system_name))),
                             'barrier_solved': '',
                             # Preserve cloud-native details
