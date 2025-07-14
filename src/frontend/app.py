@@ -2219,15 +2219,21 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
             
             # Import tracking system with fallback
             try:
-                from src.backend.barrier_breaking_tracking_system import BarrierBreakingTrackingSystem
-                tracking_client = BarrierBreakingTrackingSystem()
-                use_barrier_breaking = True
-                st.info("🚀 Using Barrier-Breaking Tracking System")
-            except ImportError:
-                from src.backend.enhanced_ltl_tracking_client import EnhancedLTLTrackingClient
-                tracking_client = EnhancedLTLTrackingClient()
+                from src.backend.streamlit_cloud_tracker import EnhancedStreamlitCloudTracker
+                tracking_client = EnhancedStreamlitCloudTracker()
                 use_barrier_breaking = False
-                st.info("🚀 Using Enhanced Zero-Cost Tracking System")
+                st.info("🚀 Using Enhanced Cloud-Native Tracking System")
+            except ImportError:
+                try:
+                    from src.backend.streamlit_cloud_tracker import StreamlitCloudTracker
+                    tracking_client = StreamlitCloudTracker()
+                    use_barrier_breaking = False
+                    st.info("🚀 Using Basic Cloud Tracking System")
+                except ImportError:
+                    from src.backend.zero_cost_carriers import ZeroCostCarrierTracking
+                    tracking_client = ZeroCostCarrierTracking()
+                    use_barrier_breaking = False
+                    st.info("🚀 Using Zero-Cost Fallback System")
             
             # Track PRO numbers with progress
             tracking_progress = st.progress(0)
@@ -2244,35 +2250,32 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
                         tracking_progress.progress(int((i / len(pro_numbers)) * 100))
                         tracking_status.text(f"Tracking PRO {i+1}/{len(pro_numbers)}: {pro_info['pro_number']}")
                         
-                        # Track the PRO number using appropriate system
-                        if use_barrier_breaking:
-                            result_dict = await tracking_client.track_single_shipment(pro_info['pro_number'])
+                        # Track the PRO number using cloud-native system
+                        if hasattr(tracking_client, 'track_shipment'):
+                            # Use async method with proper carrier detection
+                            carrier = pro_info.get('carrier', 'unknown')
+                            result_dict = await tracking_client.track_shipment(pro_info['pro_number'], carrier)
                         else:
-                            result_dict = await tracking_client.track_shipment(pro_info['pro_number'])
+                            # Fallback to sync method
+                            result_dict = {
+                                'success': False,
+                                'tracking_number': pro_info['pro_number'],
+                                'carrier': 'unknown',
+                                'error': 'No tracking method available'
+                            }
                         
                         # Convert to legacy format for compatibility
                         class TrackingResult:
                             def __init__(self, result_dict, use_barrier_breaking):
-                                if use_barrier_breaking:
-                                    # Barrier-breaking system format
-                                    self.pro_number = result_dict.get('tracking_number', pro_info['pro_number'])
-                                    self.carrier_name = result_dict.get('carrier', 'Unknown')
-                                    self.tracking_status = result_dict.get('status', 'No status available')
-                                    self.tracking_location = result_dict.get('location', 'No location available')
-                                    self.tracking_event = result_dict.get('event', '')
-                                    self.tracking_timestamp = result_dict.get('timestamp', 'No timestamp available')
-                                    self.scrape_success = result_dict.get('success', False)
-                                    self.error_message = result_dict.get('error', '') if not self.scrape_success else ''
-                                else:
-                                    # Enhanced system format
-                                    self.pro_number = result_dict.get('pro_number', pro_info['pro_number'])
-                                    self.carrier_name = result_dict.get('carrier', 'Unknown')
-                                    self.tracking_status = result_dict.get('tracking_status', 'No status available')
-                                    self.tracking_location = result_dict.get('tracking_location', 'No location available')
-                                    self.tracking_event = result_dict.get('tracking_event', '')
-                                    self.tracking_timestamp = result_dict.get('tracking_timestamp', 'No timestamp available')
-                                    self.scrape_success = result_dict.get('status') == 'success'
-                                    self.error_message = result_dict.get('message', '') if not self.scrape_success else ''
+                                # Cloud-native system format
+                                self.pro_number = result_dict.get('tracking_number', pro_info['pro_number'])
+                                self.carrier_name = result_dict.get('carrier', 'Unknown')
+                                self.tracking_status = result_dict.get('status', 'No status available')
+                                self.tracking_location = result_dict.get('location', 'No location available')
+                                self.tracking_event = result_dict.get('events', [''])[0] if result_dict.get('events') else ''
+                                self.tracking_timestamp = result_dict.get('timestamp', 'No timestamp available')
+                                self.scrape_success = result_dict.get('success', False)
+                                self.error_message = result_dict.get('error', '') if not self.scrape_success else ''
                                 self.scraped_data = result_dict
                                 # Additional attributes for load tracking
                                 self.load_id = None
@@ -2290,6 +2293,10 @@ def process_data_enhanced(df, field_mappings, api_credentials, brokerage_name, d
                 
                 # Run the async tracking
                 tracking_results = asyncio.run(track_all_pros())
+                
+                # Clean up tracker resources
+                if hasattr(tracking_client, 'close'):
+                    asyncio.run(tracking_client.close())
                 
                 # Clear tracking progress
                 tracking_progress.empty()

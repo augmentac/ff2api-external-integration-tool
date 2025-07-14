@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Enhanced Streamlit Cloud Tracker - Phase 1: Infrastructure Foundation
+Enhanced Streamlit Cloud Tracker - Cloud-Native Implementation
 
-Advanced cloud tracker with sophisticated request patterns that:
-- Implements advanced browser fingerprinting with device profile rotation
-- Uses persistent sessions with proper connection pooling
-- Applies human-like browsing behavior and timing patterns
-- Includes SSL/TLS fingerprinting simulation
+Cloud-native tracking system designed for Streamlit Cloud deployment:
+- Pure HTTP-based tracking (no browser automation)
+- Advanced fingerprinting without selenium
+- Persistent session management
+- Multi-endpoint fallback strategies
 - Targets 15-25% success rate improvement from current 0%
 """
 
@@ -32,19 +32,10 @@ logger = logging.getLogger(__name__)
 # Import the new event extractor
 from .status_event_extractor import StatusEventExtractor
 
-# Import proxy integration system
-try:
-    from .proxy_integration import ProxyIntegrationManager, make_proxy_request, get_proxy_status
-    PROXY_INTEGRATION_AVAILABLE = True
-    logger.info("✅ Proxy integration system loaded successfully")
-except ImportError as e:
-    PROXY_INTEGRATION_AVAILABLE = False
-    logger.warning(f"❌ Proxy integration not available: {e}")
-    ProxyIntegrationManager = None
-    make_proxy_request = None
-    get_proxy_status = None
+# Import cloud-native tracker
+from .cloud_native_tracker import CloudNativeTracker
 
-# Import diagnostic systems
+# Import diagnostic systems (with fallback)
 try:
     from .network_diagnostics import NetworkDiagnostics
     from .content_analysis import ContentAnalyzer
@@ -412,32 +403,19 @@ class AdvancedSessionManager:
 
 class EnhancedStreamlitCloudTracker:
     """
-    Enhanced Cloud Tracker with Phase 1 & 2 improvements:
-    - Advanced browser fingerprinting with device profile rotation
-    - Persistent sessions with connection pooling
-    - Human-like browsing behavior and timing patterns
-    - SSL/TLS fingerprinting simulation
-    - Proxy integration with IP rotation and CloudFlare bypass
-    - Geolocation matching for carrier-specific optimization
+    Enhanced Cloud Tracker - Cloud-Native Implementation:
+    - Pure HTTP-based tracking (no browser automation)
+    - Advanced fingerprinting without selenium
+    - Persistent session management
+    - Multi-endpoint fallback strategies
+    - Intelligent response parsing
     
-    Expected improvement: 0% → 25-40% success rate
+    Expected improvement: 0% → 15-25% success rate
     """
     
     def __init__(self):
         self.event_extractor = StatusEventExtractor()
-        self.browser_fingerprinter = AdvancedBrowserFingerprinter()
-        self.behavior_simulator = HumanBehaviorSimulator()
-        self.session_manager = AdvancedSessionManager()
-        
-        # Initialize proxy integration if available
-        if PROXY_INTEGRATION_AVAILABLE:
-            self.proxy_manager = ProxyIntegrationManager()
-            self.proxy_enabled = True
-            logger.info("🔄 Proxy integration enabled - IP rotation active")
-        else:
-            self.proxy_manager = None
-            self.proxy_enabled = False
-            logger.warning("⚠️ Proxy integration disabled - using direct connections")
+        self.cloud_tracker = CloudNativeTracker()
         
         # Diagnostic data
         self.diagnostic_data = {
@@ -447,19 +425,13 @@ class EnhancedStreamlitCloudTracker:
             'method_success_rates': {},
             'carrier_success_rates': {},
             'session_fingerprints': [],
-            'request_patterns': [],
-            'proxy_usage': {
-                'total_requests': 0,
-                'successful_proxy_requests': 0,
-                'proxy_rotations': 0,
-                'cloudflare_bypasses': 0
-            }
+            'request_patterns': []
         }
         
-        # Updated success rate expectations with proxy integration
+        # Success rate expectations for cloud-native approach
         self.enhanced_expectations = {
-            'fedex': {'success_rate': 0.35, 'barriers': ['CloudFlare', 'TLS Fingerprinting'], 'proxy_boost': 0.15},
-            'estes': {'success_rate': 0.40, 'barriers': ['JavaScript Detection', 'Bot Protection'], 'proxy_boost': 0.20},
+            'fedex': {'success_rate': 0.20, 'barriers': ['CloudFlare', 'TLS Fingerprinting'], 'method': 'HTTP + Mobile endpoints'},
+            'estes': {'success_rate': 0.25, 'barriers': ['JavaScript Detection', 'Bot Protection'], 'method': 'Direct API calls'},
             'peninsula': {'success_rate': 0.30, 'barriers': ['SPA Architecture', 'Session Validation'], 'proxy_boost': 0.12},
             'rl': {'success_rate': 0.32, 'barriers': ['IP Blocking', 'Rate Limiting'], 'proxy_boost': 0.18}
         }
@@ -621,63 +593,145 @@ class EnhancedStreamlitCloudTracker:
     
     async def track_shipment(self, tracking_number: str, carrier: str) -> Dict[str, Any]:
         """
-        Enhanced tracking with sophisticated request patterns and browser fingerprinting
+        Enhanced tracking using cloud-native HTTP methods
         """
         start_time = time.time()
         carrier_lower = carrier.lower()
         
-        logger.info(f"🚀 Enhanced Phase 1 tracking: {carrier} - {tracking_number}")
+        logger.info(f"🚀 Enhanced cloud-native tracking: {carrier} - {tracking_number}")
         
-        # Get device profile for this carrier
-        device_profile = self.browser_fingerprinter.get_device_profile(carrier_lower)
-        session_fingerprint = self.browser_fingerprinter.generate_session_fingerprint(device_profile)
+        # Update diagnostic data
+        self.diagnostic_data['tracking_attempts'] += 1
         
-        # Get persistent session
-        session = await self.session_manager.get_session(carrier_lower, device_profile)
-        
-        # Apply human behavior simulation
-        delay = self.behavior_simulator.get_human_delay(carrier_lower)
-        await asyncio.sleep(delay)
-        
-        # Warm session if needed
-        if self.behavior_simulator.should_warm_session(carrier_lower):
-            await self.warm_session(session, carrier_lower, device_profile)
-        
-        # Try enhanced tracking methods
-        for method_name, method_func in self.enhanced_tracking_methods.items():
-            try:
-                logger.info(f"🔧 Trying {method_name} for {carrier}")
+        try:
+            # Use cloud-native tracker
+            result = await self.cloud_tracker.track_shipment(tracking_number, carrier)
+            
+            if result.get('status') == 'success':
+                logger.info(f"✅ Cloud-native tracking successful for {carrier} - {tracking_number}")
                 
-                result = await method_func(tracking_number, carrier_lower, session, device_profile)
+                # Update success diagnostics
+                self.diagnostic_data['successful_tracks'] += 1
+                if carrier_lower not in self.diagnostic_data['carrier_success_rates']:
+                    self.diagnostic_data['carrier_success_rates'][carrier_lower] = {
+                        'attempts': 0, 'successes': 0
+                    }
+                self.diagnostic_data['carrier_success_rates'][carrier_lower]['attempts'] += 1
+                self.diagnostic_data['carrier_success_rates'][carrier_lower]['successes'] += 1
                 
-                if result and result.get('html_content'):
-                    # Apply enhanced validation
-                    if self.enhanced_validate_response(result['html_content'], tracking_number):
-                        # Extract events
-                        event_result = self.event_extractor.extract_latest_event(
-                            result['html_content'], carrier_lower
-                        )
-                        
-                        if event_result.get('success'):
-                            logger.info(f"✅ {method_name} successful for {carrier} - {tracking_number}")
-                            
-                            # Update diagnostics
-                            self.update_success_diagnostics(carrier_lower, method_name, session_fingerprint)
-                            
-                            return self.format_enhanced_success_result(
-                                event_result, tracking_number, carrier, method_name, start_time, device_profile
-                            )
-                        else:
-                            logger.debug(f"❌ {method_name} failed event extraction for {carrier}")
-                    else:
-                        logger.debug(f"❌ {method_name} failed validation for {carrier}")
+                # Format result with enhanced information
+                processing_time = time.time() - start_time
+                enhanced_result = {
+                    'success': True,
+                    'tracking_number': tracking_number,
+                    'carrier': carrier,
+                    'status': result.get('tracking_status', 'Information Found'),
+                    'location': result.get('tracking_location', 'See details'),
+                    'timestamp': result.get('tracking_timestamp', datetime.now().isoformat()),
+                    'events': [result.get('tracking_event', 'Tracking information retrieved')],
+                    'processing_time': processing_time,
+                    'method': 'cloud_native_http',
+                    'enhancement_level': 'Cloud-Native HTTP Tracking',
+                    'extracted_from': result.get('extracted_from', 'cloud_native_tracker')
+                }
                 
-            except Exception as e:
-                logger.debug(f"❌ {method_name} error for {carrier}: {e}")
-                continue
+                return enhanced_result
+            else:
+                logger.debug(f"❌ Cloud-native tracking failed for {carrier} - {tracking_number}")
+                
+                # Update failure diagnostics
+                self.diagnostic_data['failed_tracks'] += 1
+                if carrier_lower not in self.diagnostic_data['carrier_success_rates']:
+                    self.diagnostic_data['carrier_success_rates'][carrier_lower] = {
+                        'attempts': 0, 'successes': 0
+                    }
+                self.diagnostic_data['carrier_success_rates'][carrier_lower]['attempts'] += 1
+                
+                # Return formatted failure result
+                processing_time = time.time() - start_time
+                return {
+                    'success': False,
+                    'tracking_number': tracking_number,
+                    'carrier': carrier,
+                    'error': result.get('error', 'Tracking failed'),
+                    'explanation': result.get('explanation', 'Unable to retrieve tracking information'),
+                    'processing_time': processing_time,
+                    'method': 'cloud_native_http',
+                    'enhancement_level': 'Cloud-Native HTTP Tracking',
+                    'next_phase_recommendation': 'Consider manual tracking via carrier website'
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Cloud-native tracking error for {carrier} - {tracking_number}: {e}")
+            
+            # Update failure diagnostics
+            self.diagnostic_data['failed_tracks'] += 1
+            if carrier_lower not in self.diagnostic_data['carrier_success_rates']:
+                self.diagnostic_data['carrier_success_rates'][carrier_lower] = {
+                    'attempts': 0, 'successes': 0
+                }
+            self.diagnostic_data['carrier_success_rates'][carrier_lower]['attempts'] += 1
+            
+            processing_time = time.time() - start_time
+            return {
+                'success': False,
+                'tracking_number': tracking_number,
+                'carrier': carrier,
+                'error': str(e),
+                'explanation': f'Technical error occurred during cloud-native tracking: {str(e)}',
+                'processing_time': processing_time,
+                'method': 'cloud_native_http',
+                'enhancement_level': 'Cloud-Native HTTP Tracking',
+                'next_phase_recommendation': 'Check network connectivity and try again'
+            }
+    
+    async def track_multiple_shipments(self, tracking_data: List[Tuple[str, str]]) -> Dict[str, Any]:
+        """Track multiple shipments using cloud-native methods"""
+        logger.info(f"🚛 Starting enhanced bulk tracking for {len(tracking_data)} shipments")
         
-        # All methods failed
-        logger.warning(f"❌ All enhanced methods failed for {carrier} - {tracking_number}")
+        # Use cloud-native tracker for bulk operations
+        result = await self.cloud_tracker.track_multiple_shipments(tracking_data)
+        
+        # Update diagnostic data
+        self.diagnostic_data['tracking_attempts'] += result['summary']['total_attempts']
+        self.diagnostic_data['successful_tracks'] += result['summary']['successful_tracks']
+        self.diagnostic_data['failed_tracks'] += result['summary']['failed_tracks']
+        
+        return result
+    
+    async def get_system_status(self) -> Dict[str, Any]:
+        """Get system status information"""
+        # Get status from cloud-native tracker
+        cloud_status = await self.cloud_tracker.get_system_status()
+        
+        # Combine with local diagnostic data
+        total_attempts = self.diagnostic_data['tracking_attempts']
+        successful_tracks = self.diagnostic_data['successful_tracks']
+        
+        current_success_rate = f"{(successful_tracks / total_attempts * 100):.1f}%" if total_attempts > 0 else "0%"
+        
+        return {
+            'enhancement_level': 'Cloud-Native HTTP Tracking',
+            'current_success_rate': current_success_rate,
+            'phase_2_target': '15-25%',
+            'proxy_integration': {'enabled': False, 'reason': 'Using direct HTTP requests'},
+            'active_enhancements': [
+                'Cloud-Native HTTP Tracking',
+                'Advanced HTTP fingerprinting',
+                'Persistent session management',
+                'Multi-endpoint fallback',
+                'Intelligent response parsing',
+                'Concurrent request processing'
+            ],
+            'tracking_attempts': total_attempts,
+            'successful_tracks': successful_tracks,
+            'failed_tracks': total_attempts - successful_tracks,
+            'carrier_performance': self.diagnostic_data['carrier_success_rates']
+        }
+    
+    async def close(self):
+        """Clean up resources"""
+        await self.cloud_tracker.close()
         
         # Update diagnostics
         self.update_failure_diagnostics(carrier_lower, session_fingerprint)

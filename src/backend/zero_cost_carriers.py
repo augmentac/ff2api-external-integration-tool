@@ -1231,4 +1231,115 @@ class ZeroCostCarrierManager:
     
     def cleanup(self):
         """Clean up resources"""
-        self.anti_scraping.cleanup() 
+        self.anti_scraping.cleanup()
+
+
+class ZeroCostCarrierTracking:
+    """Zero-cost carrier tracking implementation for legacy compatibility"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.manager = ZeroCostCarrierManager()
+    
+    async def track_fedex_freight(self, pro_number: str) -> Dict[str, Any]:
+        """Track FedEx Freight shipment"""
+        try:
+            result = await self.manager.track_shipment('fedex', pro_number)
+            # Ensure consistent response format
+            if result.get('status') == 'success':
+                return {
+                    'status': 'success',
+                    'pro_number': pro_number,
+                    'carrier': 'FedEx Freight',
+                    'tracking_status': result.get('delivery_status', 'Found'),
+                    'tracking_event': result.get('delivery_status', 'Tracking information found'),
+                    'tracking_timestamp': datetime.now().isoformat(),
+                    'extracted_from': 'zero_cost_fedex_tracker'
+                }
+            else:
+                return {
+                    'status': 'error',
+                    'pro_number': pro_number,
+                    'carrier': 'FedEx Freight',
+                    'error_message': result.get('message', 'Tracking failed'),
+                    'tracking_timestamp': datetime.now().isoformat()
+                }
+        except Exception as e:
+            self.logger.error(f"FedEx tracking failed: {e}")
+            return {
+                'status': 'error',
+                'pro_number': pro_number,
+                'carrier': 'FedEx Freight',
+                'error_message': str(e),
+                'tracking_timestamp': datetime.now().isoformat()
+            }
+    
+    async def track_estes_express(self, pro_number: str) -> Dict[str, Any]:
+        """Track Estes Express shipment"""
+        try:
+            result = await self.manager.track_shipment('estes', pro_number)
+            # Ensure consistent response format
+            if result.get('status') == 'success':
+                return {
+                    'status': 'success',
+                    'pro_number': pro_number,
+                    'carrier': 'Estes Express',
+                    'tracking_status': result.get('delivery_status', 'Found'),
+                    'tracking_event': result.get('delivery_status', 'Tracking information found'),
+                    'tracking_timestamp': datetime.now().isoformat(),
+                    'extracted_from': 'zero_cost_estes_tracker'
+                }
+            else:
+                return {
+                    'status': 'error',
+                    'pro_number': pro_number,
+                    'carrier': 'Estes Express',
+                    'error_message': result.get('message', 'Tracking failed'),
+                    'tracking_timestamp': datetime.now().isoformat()
+                }
+        except Exception as e:
+            self.logger.error(f"Estes tracking failed: {e}")
+            return {
+                'status': 'error',
+                'pro_number': pro_number,
+                'carrier': 'Estes Express',
+                'error_message': str(e),
+                'tracking_timestamp': datetime.now().isoformat()
+            }
+    
+    async def track_peninsula_truck(self, pro_number: str) -> Dict[str, Any]:
+        """Track Peninsula Truck Lines shipment"""
+        try:
+            result = await self.manager.track_shipment('peninsula', pro_number)
+            # Ensure consistent response format
+            if result.get('status') == 'success':
+                return {
+                    'status': 'success',
+                    'pro_number': pro_number,
+                    'carrier': 'Peninsula Truck Lines',
+                    'tracking_status': result.get('delivery_status', 'Found'),
+                    'tracking_event': result.get('delivery_status', 'Tracking information found'),
+                    'tracking_timestamp': datetime.now().isoformat(),
+                    'extracted_from': 'zero_cost_peninsula_tracker'
+                }
+            else:
+                return {
+                    'status': 'error',
+                    'pro_number': pro_number,
+                    'carrier': 'Peninsula Truck Lines',
+                    'error_message': result.get('message', 'Tracking failed'),
+                    'tracking_timestamp': datetime.now().isoformat()
+                }
+        except Exception as e:
+            self.logger.error(f"Peninsula tracking failed: {e}")
+            return {
+                'status': 'error',
+                'pro_number': pro_number,
+                'carrier': 'Peninsula Truck Lines',
+                'error_message': str(e),
+                'tracking_timestamp': datetime.now().isoformat()
+            }
+    
+    def cleanup(self):
+        """Clean up resources"""
+        self.manager.cleanup() 

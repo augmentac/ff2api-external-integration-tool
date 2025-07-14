@@ -783,14 +783,14 @@ class AdvancedContentExtractor:
         try:
             soup = BeautifulSoup(content, 'html.parser')
             
-                         # Look for schema.org microdata
-             microdata_items = soup.find_all(attrs={'itemtype': True})
-             for item in microdata_items:
-                 itemtype_value = item.get('itemtype', '')
-                 if isinstance(itemtype_value, str):
-                     itemtype = itemtype_value.lower()
-                     if any(keyword in itemtype for keyword in ['parcel', 'package', 'shipment']):
-                         return self._parse_microdata_item(item, tracking_number)
+            # Look for schema.org microdata
+            microdata_items = soup.find_all(attrs={'itemtype': True})
+            for item in microdata_items:
+                itemtype_value = item.get('itemtype', '')
+                if isinstance(itemtype_value, str):
+                    itemtype = itemtype_value.lower()
+                    if any(keyword in itemtype for keyword in ['parcel', 'package', 'shipment']):
+                        return self._parse_microdata_item(item, tracking_number)
             
             return None
             
