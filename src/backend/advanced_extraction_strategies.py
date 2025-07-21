@@ -548,11 +548,23 @@ class AdvancedExtractionStrategies:
         locations = {
             'fedex': ['ATLANTA, GA', 'MEMPHIS, TN', 'INDIANAPOLIS, IN', 'DALLAS, TX', 'OAKLAND, CA'],
             'estes': ['RICHMOND, VA', 'CHICAGO, IL', 'ATLANTA, GA', 'DALLAS, TX', 'PHOENIX, AZ'],
-            'peninsula': ['SEATTLE, WA', 'PORTLAND, OR', 'TACOMA, WA', 'SPOKANE, WA', 'VANCOUVER, WA'],
+            'peninsula': [],  # DISABLED: Peninsula website not functional - avoiding fake location data
             'rl': ['WILMINGTON, OH', 'ATLANTA, GA', 'CHICAGO, IL', 'DALLAS, TX', 'MEMPHIS, TN']
         }
         
         carrier_locations = locations.get(carrier, ['TERMINAL', 'FACILITY', 'DESTINATION'])
+        
+        # Special handling for carriers with disabled location fallbacks
+        if not carrier_locations:
+            return {
+                'status': 'Tracking Unavailable',
+                'location': 'Website Not Accessible',
+                'event': f'Carrier tracking website is not currently functional',
+                'timestamp': datetime.now().isoformat(),
+                'confidence': 0.0,
+                'method': 'carrier_website_unavailable'
+            }
+        
         likely_location = carrier_locations[pro_hash % len(carrier_locations)]
         
         # Generate event description

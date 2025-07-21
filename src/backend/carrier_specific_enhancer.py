@@ -468,7 +468,15 @@ class CarrierSpecificEnhancer:
                 likely_status = 'Delivered'
                 age_days = 10
             
-            locations = ['SEATTLE, WA', 'PORTLAND, OR', 'TACOMA, WA', 'SPOKANE, WA', 'VANCOUVER, WA']
+            # DISABLED: Peninsula website not functional - return error instead of fake locations
+            return {
+                'status': 'Tracking Unavailable',
+                'location': 'Website Not Accessible', 
+                'event': f'Peninsula tracking website is not currently functional',
+                'timestamp': (datetime.now() - timedelta(days=age_days)).isoformat(),
+                'confidence': 0.0,
+                'method': 'peninsula_website_unavailable'
+            }
             
         elif carrier == 'rl':
             # R&L PRO patterns
