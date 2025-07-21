@@ -45,7 +45,16 @@ async def test_debug():
             print("\n❌ FAILED! Result does not match expected output")
             
     except Exception as e:
+        import traceback
         print(f"ERROR: {e}")
+        print("Full traceback:")
+        traceback.print_exc()
+    finally:
+        # Clean up sessions
+        try:
+            await tracker.session_manager.close_all_sessions()
+        except Exception as cleanup_error:
+            print(f"Cleanup error: {cleanup_error}")
 
 if __name__ == "__main__":
     asyncio.run(test_debug())

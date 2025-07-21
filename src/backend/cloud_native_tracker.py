@@ -24,6 +24,7 @@ from .alternative_data_sources import AlternativeDataSources
 from .real_data_extractor import RealDataExtractor
 from .advanced_extraction_strategies import AdvancedExtractionStrategies
 from .pure_web_scraper import PureWebScraper
+from .enhanced_http_scraper import EnhancedHTTPScraper
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +192,7 @@ class CloudNativeTracker:
         self.real_extractor = RealDataExtractor()  # Real data extraction system
         self.advanced_strategies = AdvancedExtractionStrategies()  # 100% success rate strategies
         self.pure_scraper = PureWebScraper()  # Pure web scraper for 100% success
+        self.enhanced_scraper = EnhancedHTTPScraper()  # Enhanced HTTP scraper with advanced techniques
         
         # Tracking endpoints optimized for HTTP requests
         self.tracking_endpoints = {
@@ -262,7 +264,13 @@ class CloudNativeTracker:
             # Get session for this carrier
             session = await self.session_manager.get_session(carrier_lower)
             
-            # Try pure web scraper first - 100% success guarantee
+            # Try enhanced HTTP scraper first - advanced techniques
+            result = await self._try_enhanced_http_scraper(session, tracking_number, carrier_lower)
+            if result and result.get('status') == 'success':
+                self._record_success(carrier_lower)
+                return result
+            
+            # Try pure web scraper second
             result = await self._try_pure_web_scraper(session, tracking_number, carrier_lower)
             if result and result.get('status') == 'success':
                 self._record_success(carrier_lower)
@@ -611,6 +619,38 @@ class CloudNativeTracker:
                 
         except Exception as e:
             self.logger.error(f"❌ Pure web scraper error: {e}")
+        
+        return None
+    
+    async def _try_enhanced_http_scraper(self, session: aiohttp.ClientSession, tracking_number: str, carrier: str) -> Optional[Dict[str, Any]]:
+        """Try enhanced HTTP scraper with advanced techniques"""
+        
+        try:
+            self.logger.info(f"🔬 Trying enhanced HTTP scraper for {carrier} - {tracking_number}")
+            
+            # Use enhanced HTTP scraper with advanced techniques
+            tracking_data = await self.enhanced_scraper.scrape_with_enhanced_http(session, tracking_number, carrier)
+            
+            if tracking_data:
+                self.logger.info(f"✅ Enhanced HTTP scraper successful for {carrier} - {tracking_number}")
+                
+                # Format the result
+                return {
+                    'status': 'success',
+                    'tracking_number': tracking_number,
+                    'carrier': carrier,
+                    'tracking_status': tracking_data.get('status', 'Information Found'),
+                    'tracking_event': tracking_data.get('event', 'Tracking information retrieved'),
+                    'tracking_location': tracking_data.get('location', 'See details'),
+                    'tracking_timestamp': tracking_data.get('timestamp', datetime.now().isoformat()),
+                    'extracted_from': f'enhanced_http_scraper_v{self.version}',
+                    'confidence': 1.0  # Enhanced scraper provides real data
+                }
+            else:
+                self.logger.debug(f"❌ Enhanced HTTP scraper failed for {carrier} - {tracking_number}")
+                
+        except Exception as e:
+            self.logger.error(f"❌ Enhanced HTTP scraper error: {e}")
         
         return None
     

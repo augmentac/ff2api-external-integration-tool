@@ -699,15 +699,26 @@ class PureWebScraper:
             for match in matches:
                 status = match.group(1).title()
                 
-                # Look for location near the status
-                location_pattern = r'([A-Z]{2,}\s*,\s*[A-Z]{2,})'
-                location_matches = re.finditer(location_pattern, content)
+                # Enhanced location extraction with multiple patterns
+                location_patterns = [
+                    r'([A-Z][a-zA-Z\s]{2,20},\s*[A-Z]{2,3}(?:\s+US)?)',
+                    r'([A-Z]{3,}\s*,\s*[A-Z]{2,3}(?:\s+US)?)',
+                    r'(?:location|destination|at|in)\s*[:]*\s*([A-Z][a-zA-Z\s,]{10,50})',
+                    r'(?:delivered|arrived).*?(?:at|in|to)\s*([A-Z][a-zA-Z\s,]{5,40})',
+                ]
                 location = 'Unknown'
                 
-                for loc_match in location_matches:
-                    # Check if location is near the status
-                    if abs(loc_match.start() - match.start()) < 500:
-                        location = loc_match.group(1)
+                # Look for location patterns near the status
+                for pattern in location_patterns:
+                    location_matches = re.finditer(pattern, content, re.IGNORECASE)
+                    for loc_match in location_matches:
+                        # Check if location is near the status
+                        if abs(loc_match.start() - match.start()) < 500:
+                            potential_location = loc_match.group(1).strip()
+                            if self._is_valid_location(potential_location):
+                                location = potential_location
+                                break
+                    if location != 'Unknown':
                         break
                 
                 return {
@@ -754,15 +765,31 @@ class PureWebScraper:
             row_text = row.get_text().strip()
             
             if pro_number in row_text:
-                # Extract status and location from the row
-                status_match = re.search(r'(delivered|in transit|out for delivery|picked up|exception)', row_text, re.IGNORECASE)
-                location_match = re.search(r'([A-Z]{2,}\s*,\s*[A-Z]{2,})', row_text)
+                # Enhanced status and location extraction from the row
+                status_match = re.search(r'(delivered|in transit|out for delivery|picked up|exception|arrived|departed)', row_text, re.IGNORECASE)
+                
+                # Enhanced location patterns
+                location_patterns = [
+                    r'([A-Z][a-zA-Z\s]{2,20},\s*[A-Z]{2,3}(?:\s+US)?)',
+                    r'([A-Z]{3,}\s*,\s*[A-Z]{2,3}(?:\s+US)?)',
+                ]
+                
+                location = 'Unknown'
+                for pattern in location_patterns:
+                    location_match = re.search(pattern, row_text)
+                    if location_match and self._is_valid_location(location_match.group(1)):
+                        location = location_match.group(1).strip()
+                        break
                 
                 if status_match:
+                    status = status_match.group(1).title()
+                    if status.lower() == 'picked up':
+                        status = 'Delivered'
+                    
                     return {
-                        'status': status_match.group(1).title(),
-                        'location': location_match.group(1) if location_match else 'Unknown',
-                        'event': f'Package {status_match.group(1).lower()}',
+                        'status': status,
+                        'location': location,
+                        'event': f'Package {status.lower()}',
                         'timestamp': datetime.now().isoformat()
                     }
         
@@ -773,15 +800,35 @@ class PureWebScraper:
         
         text = element.get_text().strip()
         
-        # Look for status and location information
-        status_match = re.search(r'(delivered|in transit|out for delivery|picked up|exception)', text, re.IGNORECASE)
-        location_match = re.search(r'([A-Z]{2,}\s*,\s*[A-Z]{2,})', text)
+        # Enhanced status and location information extraction
+        status_match = re.search(r'(delivered|in transit|out for delivery|picked up|exception|arrived|departed)', text, re.IGNORECASE)
+        
+        # Enhanced location patterns
+        location_patterns = [
+            r'([A-Z][a-zA-Z\s]{2,20},\s*[A-Z]{2,3}(?:\s+US)?)',
+            r'([A-Z]{3,}\s*,\s*[A-Z]{2,3}(?:\s+US)?)',
+            r'(?:location|destination|at|in)\s*[:]*\s*([A-Z][a-zA-Z\s,]{10,50})',
+            r'(?:delivered|arrived).*?(?:at|in|to)\s*([A-Z][a-zA-Z\s,]{5,40})',
+        ]
+        
+        location = 'Unknown'
+        for pattern in location_patterns:
+            location_match = re.search(pattern, text, re.IGNORECASE)
+            if location_match:
+                potential_location = location_match.group(1).strip()
+                if self._is_valid_location(potential_location):
+                    location = potential_location
+                    break
         
         if status_match:
+            status = status_match.group(1).title()
+            if status.lower() == 'picked up':
+                status = 'Delivered'
+            
             return {
-                'status': status_match.group(1).title(),
-                'location': location_match.group(1) if location_match else 'Unknown',
-                'event': f'Package {status_match.group(1).lower()}',
+                'status': status,
+                'location': location,
+                'event': f'Package {status.lower()}',
                 'timestamp': datetime.now().isoformat()
             }
         
@@ -1104,3 +1151,20 @@ class PureWebScraper:
                 return location_match.group(1)
         
         return 'Unknown'
+    
+    def _is_valid_location(self, location: str) -> bool:
+        """Validate if a string looks like a valid location"""
+        if not location or len(location) < 5:
+            return False
+        
+        # Check for common location patterns
+        patterns = [
+            r'^[A-Z][a-zA-Z\s]{2,20},\s*[A-Z]{2,3}(?:\s+US)?$',
+            r'^[A-Z]{3,}\s*,\s*[A-Z]{2,3}(?:\s+US)?$'
+        ]
+        
+        for pattern in patterns:
+            if re.match(pattern, location.strip()):
+                return True
+        
+        return False
